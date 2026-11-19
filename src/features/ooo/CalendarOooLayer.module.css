@@ -55,10 +55,12 @@
   white-space: nowrap; overflow: hidden;
 }
 .stripText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stripMeta { flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; font-weight: 400; }
+.stripHover { text-decoration: underline dotted; text-underline-offset: 2px; }
+.holidayStripWrap.holidayStripWrap { display: block; }
 .holidayHost {
   position: absolute; inset: 0; z-index: 1;
-  border: 0.5px solid var(--accent-green);
-  background: var(--accent-light-green-tint);
+  background: var(--neutral-50);
   mix-blend-mode: multiply;
   cursor: not-allowed; overflow: hidden;
 }

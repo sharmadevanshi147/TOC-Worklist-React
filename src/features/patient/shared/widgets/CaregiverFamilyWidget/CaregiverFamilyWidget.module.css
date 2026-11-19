@@ -1,0 +1,36 @@
+/* Family & Caregiver (Figma Mar-Present 2026 5207:5897; rows 3137:45720). */
+
+.card {
+  display: flex; flex-direction: column; min-width: 0; max-width: 100%;
+  border: 0.5px solid var(--neutral-150); border-radius: var(--space-2);
+  background: var(--neutral-0); overflow: hidden;
+}
+.row {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3);
+  border-bottom: 0.5px solid var(--neutral-150);
+}
+.row:last-child { border-bottom: none; }
+.rowInactive .name, .rowInactive .meta { color: var(--neutral-200); }
+
+.info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(var(--space-1) / 2); }
+.nameRow { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.name {
+  font-size: var(--font-base); line-height: 1.2; color: var(--neutral-400);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Wraps between parts (never inside one), so a long line of roles can't
+   push the row wider than the panel. */
+.meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: calc(var(--space-1) / 2) var(--space-1); min-width: 0;
+  font-size: var(--font-sm); line-height: 1.2; color: var(--neutral-200);
+}
+.meta > span { white-space: nowrap; }
+.dot { flex-shrink: 0; }
+.emergency { color: var(--status-error); }
+.appIcon { display: inline-flex; flex-shrink: 0; line-height: 0; }
+
+.actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
+
+.footer { padding: var(--space-3); }
+.footerLink { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--font-sm); }

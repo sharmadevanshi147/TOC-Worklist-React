@@ -70,6 +70,26 @@ export function holidaysForUser(holidays, users, who, fallback = []) {
   return holidaysAt(holidays, u?.locations?.length ? u.locations : fallback);
 }
 
+/**
+ * The locations booking is checked against: the Location filter when one is
+ * set, else the locations of the person shown (`who`), else none.
+ */
+export function bookingLocations(users, who, filter = []) {
+  if (filter?.length) return filter;
+  const u = who && (users || []).find(x => samePerson(x, who));
+  return u?.locations || [];
+}
+
+/**
+ * Holidays that block booking: only those covering every one of the
+ * booking locations. A holiday at some of them leaves the others open.
+ */
+export function blockingHolidays(holidays, users, who, filter = []) {
+  const want = bookingLocations(users, who, filter).filter(Boolean);
+  if (!want.length) return [];
+  return (holidays || []).filter(h => want.every(w => (h.locations || []).some(l => sameName(l, w))));
+}
+
 /** The holiday covering any of [from, to), if any. */
 export const holidayDuring = (holidays, from, to) =>
   (holidays || []).find(h => from < toMs(h.endAt) && to > toMs(h.startAt)) || null;

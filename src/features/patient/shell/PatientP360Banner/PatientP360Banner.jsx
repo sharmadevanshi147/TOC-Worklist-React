@@ -99,7 +99,7 @@ export function PatientP360Banner({ patient, variant = 'full' }) {
   const [careTeamLocation, setCareTeamLocation] = useState(null);
   const familyDrawer = patient && (
     <>
-      {familyOpen && <AddFamilyDrawer patient={patient} onClose={() => setFamilyOpen(false)} />}
+      {familyOpen && <AddFamilyDrawer patient={patient} profileFamily={p.family_members} onClose={() => setFamilyOpen(false)} />}
       {careTeamLocation && (
         <CareTeamDrawer
           patient={patient}

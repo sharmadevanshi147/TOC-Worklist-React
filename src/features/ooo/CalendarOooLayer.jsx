@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { OooIcon } from '../../components/Icon/OooIcon';
 import { Tooltip } from '../../components/Tooltip/Tooltip';
+import { HolidayHoverCard } from '../holidays/HolidayHoverCard';
 import { Icon } from '../../components/Icon/Icon';
 import { HolidayBadgeIcon } from '../../components/Icon/HolidayBadgeIcon';
 import { canEdit, daySpan, recordsFor, recordsOnDate } from './oooUtils';
@@ -24,12 +25,27 @@ const GRID_HOURS = 23;
  * @param {object}   props
  * @param {{ id: string, name: string }} [props.focusUser] – The user in view
  * @param {object[]} props.records
- * @param {object[]} [props.holidays] – Holidays at the user's locations (shown green, not bookable)
+ * @param {object[]} [props.holidays] – Holidays at the user's locations (the header strip)
+ * @param {object[]} [props.blockingHolidays] – Holidays at every selected location (greyed, not bookable)
  * @param {function} [props.onHoliday] – (holiday) => void, a click on holiday time
  * @param {number}   props.renderTick   – Changes whenever schedule-x redraws its grid
  * @param {function} props.onEdit       – (record) => void
  */
-export function CalendarOooLayer({ focusUser, records, holidays = [], renderTick, onEdit, onHoliday }) {
+// The green holiday strip: the name, and where it applies. Several
+// locations: hovering opens a card listing them.
+function HolidayStrip({ holiday }) {
+  const depts = holiday.locations || [];
+  const strip = (
+    <span className={styles.holidayStrip}>
+      <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
+      <span className={styles.stripText}>{holiday.name}</span>
+      {depts.length > 0 && <span className={`${styles.stripMeta} ${depts.length > 1 ? styles.stripHover : ''}`}>at {depts.length === 1 ? depts[0] : `${depts.length} locations`}</span>}
+    </span>
+  );
+  return <HolidayHoverCard holidays={[holiday]} className={styles.holidayStripWrap}>{strip}</HolidayHoverCard>;
+}
+
+export function CalendarOooLayer({ focusUser, records, holidays = [], blockingHolidays = [], renderTick, onEdit, onHoliday }) {
   const [targets, setTargets] = useState([]);
   // Latest handler for the native click listeners added below.
   const onEditRef = useRef(onEdit);
@@ -85,9 +101,10 @@ export function CalendarOooLayer({ focusUser, records, holidays = [], renderTick
           heads[i].setAttribute('data-ooo-day', '1');
           addStrip('strip', fullHoliday ? styles.stripHostUpper : null, {});
         }
-        // Holiday time: green, under any OOO block (drawn first). It can't
-        // be booked; a click says why.
-        dayHolidays.forEach((holiday) => {
+        // Holiday time at every selected location: greyed (disabled), under
+        // any OOO block (drawn first). It can't be booked; a click says why.
+        const blockIds = new Set(blockingHolidays.map(h => h.id));
+        dayHolidays.filter(h => blockIds.has(h.id)).forEach((holiday) => {
           const span = daySpan(holiday, date);
           if (!span) return;
           const host = document.createElement('div');
@@ -160,16 +177,13 @@ export function CalendarOooLayer({ focusUser, records, holidays = [], renderTick
       disposers.forEach((off) => off());
       hosts.forEach(h => h.remove());
     };
-  }, [focusUser, records, holidays, renderTick]);
+  }, [focusUser, records, holidays, blockingHolidays, renderTick]);
 
   return targets.map((t) => createPortal(
     t.kind === 'holidayStrip' || t.kind === 'holidayLabel' ? (
-      <span className={styles.holidayStrip}>
-        <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
-        <span className={styles.stripText}>{t.holiday.name}</span>
-      </span>
+      <HolidayStrip holiday={t.holiday} />
     ) : t.kind === 'holidayTip' ? (
-      <Tooltip label={`Holiday: ${t.holiday.name}`} followCursor>
+      <Tooltip label="Appointments can't be booked on a holiday." followCursor>
         <span className={styles.blockTipArea} aria-hidden="true" />
       </Tooltip>
     ) : t.kind === 'blockTip' ? (

@@ -17,7 +17,7 @@ export function HolidaysTab({ tabs, activeTab, onTabChange }) {
   return (
     <div className={styles.wrapper}>
       <SectionTitleBar tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} actions={[]} rightExtras={h.tools} />
-      {h.intro}
+      {h.filterRow}
       <div className={styles.content}>{h.body}</div>
       {h.elements}
     </div>

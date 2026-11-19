@@ -13,9 +13,10 @@ import { EmptyState } from '../../../../components/EmptyState/EmptyState';
 import { WorklistShell } from '../../../../components/WorklistShell/WorklistShell';
 import { DatePickerPopover } from '../../../../components/DatePicker/DatePickerPopover';
 import { useAppStore } from '../../../../store/useAppStore';
-import { recordsFor, oooStatus, formatDateTime } from '../../../ooo/oooUtils';
+import { recordsFor, recordsOnDate, oooStatus, formatDateTime, sameName } from '../../../ooo/oooUtils';
 import { STATUS_LOOK, isoDay, cadenceText, slotText, timezoneAbbr, ALL_TYPES } from './availabilityUtils';
 import { HolidayBadgeIcon } from '../../../../components/Icon/HolidayBadgeIcon';
+import { HolidayHoverCard } from '../../../holidays/HolidayHoverCard';
 import {
   dateSpan, hoursText, typesOf, primaryLocationOf, flagsOf, overlapIds, daysCovered,
   occursOn, weekDays, weekStart, dayHead, weekLabel,
@@ -42,9 +43,9 @@ const VIEWS = [
 export function UserAvailabilityNewView({ users, loading, filtersOpen, onAdd, onEdit, onDelete, renderActions, view: fixedView, weekOf, onlyDay }) {
   const oooRecords = useAppStore(s => s.oooRecords);
   const fetchOooRecords = useAppStore(s => s.fetchOooRecords);
-  const holidays = useAppStore(s => s.holidaysData);
-  const fetchHolidays = useAppStore(s => s.fetchHolidays);
-  useEffect(() => { fetchOooRecords?.(); if (!holidays) fetchHolidays?.(); }, [fetchOooRecords, fetchHolidays, holidays]);
+  const holidays = useAppStore(s => s.holidayConfigs);
+  const fetchHolidays = useAppStore(s => s.fetchHolidayConfigs);
+  useEffect(() => { fetchOooRecords?.(); fetchHolidays?.(); }, [fetchOooRecords, fetchHolidays]);
 
   const [ownView, setView] = useState('provider');
   // A host can pin the view (e.g. only This Week) and hide the switch.
@@ -314,6 +315,21 @@ const weeksFromNow = (iso) => {
 
 const WEEK_PER_PAGE = 20;
 const PICKER_W = 282; // DatePickerPopover's single-month width
+// The holiday strip at the foot of a day's header: the name, and where
+// it applies. Several locations: hovering opens a card listing them.
+function HolidayStrip({ holidays }) {
+  const names = [...new Set(holidays.map(h => h.name))].join(', ');
+  const depts = [...new Set(holidays.flatMap(h => h.locations || []))];
+  const strip = (
+    <span className={styles.holidayStrip}>
+      <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
+      <span className={styles.holidayStripText}>{names}</span>
+      {depts.length > 0 && <span className={`${styles.holidayStripMeta} ${depts.length > 1 ? styles.holidayStripHover : ''}`}>at {depts.length === 1 ? depts[0] : `${depts.length} locations`}</span>}
+    </span>
+  );
+  return <HolidayHoverCard holidays={holidays} className={styles.holidayStripWrap}>{strip}</HolidayHoverCard>;
+}
+
 function WeekGrid({ people, holidays, offset, onOffset, hideNav = false, onlyDay, renderActions, onEdit, onAdd }) {
   const [page, setPage] = useState(1);
   const [pickerRect, setPickerRect] = useState(null);
@@ -323,7 +339,8 @@ function WeekGrid({ people, holidays, offset, onOffset, hideNav = false, onlyDay
   // `onlyDay` (ISO) narrows the week to that one day.
   const days = weekDays(offset).filter(d => !onlyDay || isoDay(d) === onlyDay);
   const todayIso = isoDay(new Date());
-  const holidayOn = Object.fromEntries((holidays || []).map(h => [h.date, h.name]));
+  // Holidays are per location: the ones touching a day.
+  const holidaysOn = (iso) => recordsOnDate(holidays, iso);
   const lastPage = Math.max(1, Math.ceil(people.length / perPage));
   const pageNow = Math.min(page, lastPage);
   const sorted = nameSort
@@ -348,11 +365,8 @@ function WeekGrid({ people, holidays, offset, onOffset, hideNav = false, onlyDay
             {dayHead(d)}
             <span className={styles.dayHeadDate}>{d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
             {/* As on the calendar: a green strip along the bottom of the holiday's header. */}
-            {holidayOn[iso] && (
-              <span className={styles.holidayStrip} title={`Holiday: ${holidayOn[iso]}`}>
-                <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
-                <span className={styles.holidayStripText}>{holidayOn[iso]}</span>
-              </span>
+            {holidaysOn(iso).length > 0 && (
+              <HolidayStrip holidays={holidaysOn(iso)} />
             )}
           </span>
         ),
@@ -392,23 +406,36 @@ function WeekGrid({ people, holidays, offset, onOffset, hideNav = false, onlyDay
         const iso = isoDay(d);
         const [from, to] = [new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(), new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime()];
         const out = u.ooo.find(r => new Date(r.startAt).getTime() < to && new Date(r.endAt).getTime() > from);
-        const holiday = holidayOn[iso];
+        const dayHolidays = holidaysOn(iso);
+        const holidayAt = (loc) => dayHolidays.find(h => (h.locations || []).some(l => sameName(l, loc)));
         const oooLabel = out ? oooText(out, d) : null;
         const ranges = u.segments
           // Past slots too: a past week shows what was available then.
-          .filter(s => occursOn(s, d) && !(holiday && s.skipHolidays))
-          .flatMap(s => (s.slots || []).map((sl, k) => ({ key: `${s.id}-${k}`, s, sl })));
+          .filter(s => occursOn(s, d))
+          .flatMap(s => (s.slots || []).map((sl, k) => ({
+            key: `${s.id}-${k}`,
+            s,
+            sl,
+            // Closed for a holiday at this slot's location (other locations keep theirs).
+            off: s.skipHolidays !== false ? holidayAt(s.location) : null,
+          })))
+          // A location closed for the day shows once, with no times (they
+          // don't apply), after the locations still open.
+          .filter((r, i, all) => !r.off || all.findIndex(x => x.off && sameName(x.s.location, r.s.location)) === i)
+          .sort((a, b) => Number(!!a.off) - Number(!!b.off));
         // Opens on the slot clicked (or the day's first), scrolled to and highlighted.
         // Skip holidays is set for the user's whole availability: when it's on,
         // a holiday reads as not available, whether or not a slot falls that day.
         // Off, the day shows whatever runs (or "No schedule").
         const skipsHolidays = u.blocks.length > 0 && u.blocks.every(s => s.skipHolidays !== false);
-        const skipped = !!holiday && !ranges.length && skipsHolidays;
+        const locs = u.segments.map(s => s.location).filter(Boolean);
+        const holiday = locs.length ? locs.some(holidayAt) : dayHolidays.length > 0;
+        const skipped = holiday && !ranges.length && skipsHolidays;
         const open = () => (ranges.length ? onEdit?.(u, ranges[0].s.id) : onAdd?.(u));
         return (
           <td
             key={iso}
-            className={[styles.wTd, styles.dayCell, iso === todayIso ? styles.todayCell : '', oooLabel === 'All day' ? styles.oooAllDay : ''].filter(Boolean).join(' ')}
+            className={[styles.wTd, styles.dayCell, ranges.some(r => r.off) ? styles.dayCellFill : '', iso === todayIso ? styles.todayCell : '', oooLabel === 'All day' ? styles.oooAllDay : ''].filter(Boolean).join(' ')}
             role="button"
             tabIndex={0}
             aria-label={`${u.name}, ${dayHead(d)}: ${ranges.length ? 'edit availability' : 'add availability'}`}
@@ -441,20 +468,29 @@ function WeekGrid({ people, holidays, offset, onOffset, hideNav = false, onlyDay
               )}
               {ranges.length ? (
                 // Out all day: what was scheduled still shows, quieter, since it doesn't apply.
-                <span className={[styles.dayRanges, onlyDay ? styles.dayRangesRow : '', oooLabel === 'All day' ? styles.dayRangesOff : ''].filter(Boolean).join(' ')}>
-                  {ranges.map(({ key, s, sl }) => (
+                <span className={[styles.dayRanges, onlyDay ? styles.dayRangesRow : '', !onlyDay && ranges.some(r => r.off) ? styles.dayRangesFill : '', oooLabel === 'All day' ? styles.dayRangesOff : ''].filter(Boolean).join(' ')}>
+                  {ranges.map(({ key, s, sl, off }) => (
                     <span key={key} className={styles.dayRange} onClick={(e) => { e.stopPropagation(); onEdit?.(u, s.id); }}>
-                      <span className={styles.dayHead}>
-                        <span className={styles.dayTime}>{slotText(sl)}</span>
-                        {s.timezone && <span className={styles.dayZone}>({timezoneAbbr(s.timezone, d)})</span>}
-                      </span>
+                      {!off && (
+                        <span className={styles.dayHead}>
+                          <span className={styles.dayTime}>{slotText(sl)}</span>
+                          {s.timezone && <span className={styles.dayZone}>({timezoneAbbr(s.timezone, d)})</span>}
+                        </span>
+                      )}
                       <span className={styles.dayLoc}>{s.location}</span>
-                      <span className={styles.dayType}>{sl.appointmentType || ALL_TYPES}</span>
+                      {off ? (
+                        <span className={styles.dayHolidayNote}>
+                          <HolidayBadgeIcon size={12} color="var(--accent-green)" starColor="var(--neutral-0)" />
+                          <span>Unavailable on {off.name}</span>
+                        </span>
+                      ) : (
+                        <span className={styles.dayType}>{sl.appointmentType || ALL_TYPES}</span>
+                      )}
                     </span>
                   ))}
                 </span>
               ) : skipped
-                ? <span className={styles.holidayNote}>User not available on Holidays</span>
+                ? <span className={styles.holidayNote}>Holiday at all of user's locations</span>
                 : empty('solar:clock-circle-linear', 'No schedule', true)}
             </span>
           </td>
@@ -507,7 +543,7 @@ function WeekGrid({ people, holidays, offset, onOffset, hideNav = false, onlyDay
           )}
         </div>
       )}
-      <div className={`${styles.weekShell} ${days.some(d => holidayOn[isoDay(d)]) ? styles.weekHasHoliday : ''}`}>
+      <div className={`${styles.weekShell} ${days.some(d => holidaysOn(isoDay(d)).length) ? styles.weekHasHoliday : ''}`}>
         <WorklistShell
           header={null}
           columns={columns}

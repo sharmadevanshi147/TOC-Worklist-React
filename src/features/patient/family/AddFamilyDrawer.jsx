@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef } from 'react';
 import { Drawer } from '../../../components/Drawer/Drawer';
 import { Button } from '../../../components/Button/Button';
 import { Input } from '../../../components/Input/Input';
@@ -12,7 +12,6 @@ import { RadioButton } from '../../../components/RadioButton/RadioButton';
 import { Banner } from '../../../components/Banner/Banner';
 import { EmptyState } from '../../../components/EmptyState/EmptyState';
 import { UploadDropField } from '../../../components/UploadDropField/UploadDropField';
-import { ConfirmDialog } from '../../../components/ConfirmDialog/ConfirmDialog';
 import { AddIconMinimalist } from '../../../components/Icon/AddIconMinimalist';
 import { Checkbox } from '../../../components/Checkbox/Checkbox';
 import { toast } from '../../../components/Toast/sonnerToast';
@@ -22,8 +21,14 @@ import { personMeta } from '../../messages/comms/sendTo';
 import { categoryOf } from '../right-panel/tabs/documents/documentsData';
 import {
   RELATIONSHIPS, DECISION_MAKER_ROLES, AUTHORITY_TYPES, LEGAL_AUTHORITY_CATEGORY, LEGAL_AUTHORITY_TYPE,
-  rolesOfMember, resolveMember,
+  resolveMember,
+  profileEntryToMember, relationParts,
 } from './familyMembers';
+import { FamilyMemberMenu } from './FamilyMemberMenu';
+import { AppAccessIcon } from './AppAccessIcon';
+import { needsConsent } from './familyAccess';
+import { ManageAppAccessDrawer } from './ManageAppAccessDrawer';
+import { AppAccessHistoryDrawer } from './AppAccessHistoryDrawer';
 import styles from './AddFamilyDrawer.module.css';
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -34,6 +39,16 @@ const EMPTY_FORM = {
 };
 const extOf = (name) => (/\.([a-z0-9]+)$/i.exec(name || '') || [])[1]?.toLowerCase() || null;
 const today = () => new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+
+/** The Add Relatives form filled from a saved family person, to edit them. */
+const formFromMember = (m) => ({
+  ...EMPTY_FORM,
+  mode: m.relatedPatientId ? 'member' : 'new',
+  relatedPatientId: m.relatedPatientId ? String(m.relatedPatientId) : '',
+  name: m.name || '', relationship: m.relationship || '', email: m.email || '', phone: m.phone || '',
+  additionalPhones: m.additionalPhones || [], isCaregiver: !!m.isCaregiver, isEmergencyContact: !!m.isEmergencyContact,
+  decisionMaker: m.decisionMaker || null, authorityType: m.authorityType || null, documentIds: m.documentIds || [],
+});
 
 function Card({ title, children }) {
   return (
@@ -111,19 +126,27 @@ function NewDocumentCard({ patientId, onSaved, onCancel }) {
  * `familyId` (already added), saving updates their email instead of adding
  * them again.
  */
-export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
+export function AddFamilyDrawer({ patient, prefill = null, profileFamily: profileFamilyProp, editId = null, startAdding = false, onClose }) {
   const patientId = String(patient.id);
   const patients = useAppStore(s => s.allPatients) || [];
   const members = useAppStore(s => s.familyMembers[patientId]) || [];
+  // Family from the patient's profile record (what the banner also lists).
+  const storedProfile = useAppStore(s => s.p360ProfilesById[patientId] ?? s.p360ProfilesById[patient.id]);
+  const profileFamily = profileFamilyProp ?? storedProfile?.family_members ?? [];
   const fetchFamilyMembers = useAppStore(s => s.fetchFamilyMembers);
   const addFamilyMember = useAppStore(s => s.addFamilyMember);
-  const removeFamilyMember = useAppStore(s => s.removeFamilyMember);
   const updateFamilyMember = useAppStore(s => s.updateFamilyMember);
+  const logFamilyAccessEvent = useAppStore(s => s.logFamilyAccessEvent);
   const documents = useAppStore(s => s.programDocuments);
   const fetchProgramDocuments = useAppStore(s => s.fetchProgramDocuments);
-  useEffect(() => { fetchFamilyMembers(patientId); fetchProgramDocuments(); }, [patientId, fetchFamilyMembers, fetchProgramDocuments]);
+  // Contact search lists every patient; opened from a patient page they may not be loaded yet.
+  const fetchAllPatients = useAppStore(s => s.fetchAllPatients);
+  const patientsLoading = useAppStore(s => s.allPatientsLoading);
+  useEffect(() => { fetchFamilyMembers(patientId); fetchProgramDocuments(); fetchAllPatients(); }, [patientId, fetchFamilyMembers, fetchProgramDocuments, fetchAllPatients]);
 
-  const [form, setForm] = useState(() => (prefill ? {
+  // Opened from a row's ⋯ › Edit outside this drawer: start on that person.
+  const editTarget = editId ? members.find(m => m.id === editId) : null;
+  const [form, setForm] = useState(() => (editTarget ? formFromMember(editTarget) : prefill ? {
     ...EMPTY_FORM,
     mode: 'new',
     name: prefill.name || '',
@@ -142,8 +165,22 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
   }, [prefill]);
   const [addingDoc, setAddingDoc] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [removing, setRemoving] = useState(null);
+  // The Add Relatives card is open (Figma Mar-Present 2026 5215:37345).
+  // `startAdding`: opened from an Add (+) button, so the Add Relatives card starts open.
+  const [adding, setAdding] = useState(!!prefill || !!editTarget || startAdding);
+  // The person being edited in that card (⋯ › Edit), or null when adding.
+  const [editingId, setEditingId] = useState(editTarget?.id || null);
+  const [rowMenu, setRowMenu] = useState(null);
+  const [managing, setManaging] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
   const set = (patch) => setForm(f => ({ ...f, ...patch }));
+  const closeCard = () => { setForm(EMPTY_FORM); setAddingDoc(false); setAdding(false); setEditingId(null); };
+  const startEdit = (m) => {
+    setForm(formFromMember(m));
+    setAddingDoc(false);
+    setEditingId(m.id);
+    setAdding(true);
+  };
 
   // A Fold member is listed once, and never the patient themself.
   const taken = new Set(members.map(m => String(m.relatedPatientId)).filter(Boolean));
@@ -157,12 +194,12 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
     })), [patients, patientId, members]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const legalDocs = documents.filter(d => String(d.patientId) === patientId && categoryOf(d) === LEGAL_AUTHORITY_CATEGORY);
-  const holder = form.decisionMaker ? members.find(m => m.decisionMaker === form.decisionMaker) : null;
+  const holder = form.decisionMaker ? members.find(m => m.decisionMaker === form.decisionMaker && m.id !== editingId) : null;
   const isNew = form.mode === 'new';
   const name = form.mode === 'member' ? (patients.find(p => String(p.id) === form.relatedPatientId)?.name || '') : form.name.trim();
   const canAdd = form.mode !== 'search' && !!name && !!form.relationship && !addingDoc && !saving
     && (!form.decisionMaker || (!!form.authorityType && form.documentIds.length > 0));
-  const addBlocked = form.mode === 'search' ? 'Pick a Fold member or add someone'
+  const addBlocked = form.mode === 'search' ? 'Pick a contact or add someone'
     : !name ? 'Add a name' : !form.relationship ? 'Pick a relationship'
       : addingDoc ? 'Save or cancel the new document first'
         : form.decisionMaker && !form.authorityType ? 'Pick an authority type'
@@ -179,6 +216,26 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
       return;
     }
     if (!canAdd) return;
+    if (editingId) {
+      setSaving(true);
+      // One holder per decision-maker role: the current one steps down first.
+      if (holder) await updateFamilyMember(patientId, holder.id, { decisionMaker: null });
+      const ok = await updateFamilyMember(patientId, editingId, {
+        ...(form.mode === 'new' ? { name } : {}),
+        relationship: form.relationship,
+        ...(form.mode === 'new' ? {
+          email: form.email.trim(), phone: form.phone.trim(),
+          additionalPhones: form.additionalPhones.map(x => x.trim()).filter(Boolean),
+        } : {}),
+        isCaregiver: form.isCaregiver, isEmergencyContact: form.isEmergencyContact,
+        decisionMaker: form.decisionMaker, authorityType: form.authorityType, documentIds: form.documentIds,
+      });
+      setSaving(false);
+      if (!ok) { toast.error('These changes could not be saved. Try again.'); return; }
+      toast.success('Family Member Updated Successfully');
+      closeCard();
+      return;
+    }
     setSaving(true);
     const saved = await addFamilyMember(patientId, {
       ...form,
@@ -189,7 +246,7 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
     setSaving(false);
     if (!saved) { toast.error('This person could not be added. Try again.'); return; }
     toast.success('Family Member Added Successfully');
-    setForm(EMPTY_FORM);
+    closeCard();
   };
 
   const toggleDoc = (id) => set({ documentIds: form.documentIds.includes(id) ? form.documentIds.filter(x => x !== id) : [...form.documentIds, id] });
@@ -200,40 +257,69 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
     else toast.error('This document has no file to preview.');
   };
 
-  return (
-    <Drawer title="Add Family, Caregivers & Decision Makers" onClose={onClose}>
-      <div className={styles.body}>
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Add Family & Caregivers</h3>
+  // Profile people not yet saved here show too; changing them saves them to
+  // the list first (FamilyMemberMenu).
+  const addedNames = new Set(members.map(m => resolveMember(m, patients).name.toLowerCase()));
+  const fromProfile = (profileFamily || [])
+    .filter(f => f?.name && !addedNames.has(String(f.name).toLowerCase()))
+    .map((f, i) => profileEntryToMember(f, i, patientId));
+  const resolved = [...members.map(raw => resolveMember(raw, patients)), ...fromProfile];
+  const shown = resolved;
 
-          {form.mode === 'search' && (
-            <Select
-              label="Search Member"
-              searchable
-              options={memberOptions}
-              value=""
-              onValueChange={(id) => set({ mode: 'member', relatedPatientId: id })}
-              placeholder="Search members"
-              searchPlaceholder="Search by name or member ID"
-              emptyText={() => (
-                <span className={styles.notMember}>
-                  <EmptyState size="sm" icon="solar:user-cross-linear">
-                    <span className={styles.notMemberText}>
-                      Not a Fold Member? <Link onClick={() => set({ mode: 'new' })}>Add Here</Link>
-                    </span>
-                  </EmptyState>
-                </span>
-              )}
-            />
-          )}
-
-          {form.mode !== 'search' && (
-            <>
+  // Invite only once they have a level, by SMS when there's a phone, else email.
+  const inviteChannel = (m) => (m.phone ? 'sms' : m.email ? 'email' : null);
+  const inviteBlock = (m) => (m.accessLevel === 'none' ? 'Set an app access level first'
+    : !inviteChannel(m) ? 'Add a phone number or email first' : null);
+  const inviteItem = (m) => ({
+    key: 'invite', icon: 'solar:letter-linear', label: m.invitedAt ? 'Resend Invite' : 'Invite to Access',
+    hint: inviteBlock(m) ? undefined : (inviteChannel(m) === 'sms' ? 'By SMS' : 'By email'),
+    disabled: !!inviteBlock(m), tooltip: inviteBlock(m) || undefined,
+  });
+  const invite = async (m) => {
+    const consentPending = needsConsent(m.accessLevel, m.accessBasis, patient) && m.consentStatus !== 'accepted';
+    const ok = await updateFamilyMember(patientId, m.id, {
+      invitedAt: new Date().toISOString(),
+      invitedVia: inviteChannel(m),
+      accessStatus: consentPending ? 'pending_consent' : m.accessStatus === 'active' ? 'active' : 'invited',
+    });
+    if (ok) {
+      logFamilyAccessEvent({ patientId, memberId: m.id, memberName: m.name, action: 'invited', toLevel: m.accessLevel, method: inviteChannel(m) });
+      toast.success('Invite Recorded Successfully');
+    }
+    else toast.error('The invite could not be recorded. Try again.');
+  };
+  // The Add Relatives card: above the list when adding, in place of the
+  // person's own card when editing them.
+  const formCard = (
+            <div className={styles.addCard}>
+              <h4 className={styles.addTitle}>{editingId ? 'Edit Relative' : 'Add Relatives'}</h4>
               <div className={styles.grid}>
-                {isNew
+                {editingId && form.mode === 'member'
+                  ? <Input label="Contact" value={name} disabled />
+                  : isNew
                   ? <Input label="Name" required value={form.name} onChange={e => set({ name: e.target.value })} placeholder="Enter name" maxLength={80} />
-                  : <Input label="Name" required value={name} disabled />}
-                <Select label="Relationship" required options={RELATIONSHIPS.map(r => ({ value: r, label: r }))} value={form.relationship} onValueChange={v => set({ relationship: v })} placeholder="Select relationship" />
+                  : (
+                    <Select
+                      label="Contact"
+                      searchable
+                      leadingIcon="solar:magnifer-linear"
+                      options={memberOptions}
+                      value={form.relatedPatientId}
+                      onValueChange={(id) => set({ mode: 'member', relatedPatientId: id })}
+                      placeholder="Search Contacts"
+                      searchPlaceholder="Search by name or member ID"
+                      emptyText={() => (patientsLoading ? 'Loading contacts\u2026' : (
+                        <span className={styles.notMember}>
+                          <EmptyState size="sm" icon="solar:user-cross-linear">
+                            <span className={styles.notMemberText}>
+                              Not a Fold Member? <Link onClick={() => set({ mode: 'new' })}>Add Here</Link>
+                            </span>
+                          </EmptyState>
+                        </span>
+                      ))}
+                    />
+                  )}
+                <Select label="Relationship" required options={RELATIONSHIPS.map(r => ({ value: r, label: r }))} value={form.relationship} onValueChange={v => set({ relationship: v })} placeholder="Select Relationship" />
                 {isNew && <Input ref={emailRef} label="Email" type="email" value={form.email} onChange={e => set({ email: e.target.value })} placeholder="Enter email" />}
                 {isNew && <Input label="Phone Number" type="tel" value={form.phone} onChange={e => set({ phone: e.target.value })} placeholder="Enter phone number" />}
               </div>
@@ -252,9 +338,9 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
                   </Link>
                 </div>
               )}
-              {form.mode === 'member' && (
-                <Link variant="secondary" className={styles.addLink} role="button" tabIndex={0} onClick={() => set({ mode: 'search', relatedPatientId: '' })}>
-                  Change member
+              {isNew && !updating && !editingId && (
+                <Link variant="secondary" className={styles.addLink} role="button" tabIndex={0} onClick={() => set({ mode: 'search', name: '', email: '', phone: '', additionalPhones: [] })}>
+                  Search Fold members instead
                 </Link>
               )}
 
@@ -315,58 +401,89 @@ export function AddFamilyDrawer({ patient, prefill = null, onClose }) {
               <div className={styles.actions}>
                 {updating
                   ? <Button onClick={add} disabled={!form.email.trim() || saving} disabledReason={!form.email.trim() ? 'Add an email' : null}>Save</Button>
-                  : <Button onClick={add} disabled={!canAdd} disabledReason={addBlocked}>Add</Button>}
-                <Button variant="outline" onClick={() => { setForm(EMPTY_FORM); setAddingDoc(false); }}>Discard</Button>
+                  : <Button onClick={add} disabled={!canAdd} disabledReason={addBlocked}>{editingId ? 'Save' : 'Add'}</Button>}
+                <Button variant="outline" onClick={closeCard}>Discard</Button>
               </div>
-            </>
-          )}
-        </section>
+            </div>
+  );
 
+  return (
+    <Drawer
+      title="Add Family, Caregivers & Decision Makers"
+      onClose={onClose}
+      noCloseDivider
+      headerRight={(
+        <>
+          <ActionButton icon="solar:history-linear" tooltip="App Access History" onClick={() => setShowHistory(true)} />
+          <span className={styles.headerDivider} aria-hidden="true" />
+        </>
+      )}
+    >
+      <div className={styles.body}>
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Family & Caregivers</h3>
-          {members.length === 0 ? (
-            <div className={styles.emptyCard}>
-              <EmptyState size="sm" icon="solar:user-heart-linear" title="No family or caregivers added" />
+          <div className={styles.sectionHead}>
+            <h3 className={styles.sectionTitle}>Family & Caregivers</h3>
+            <div className={styles.headActions}>
+              <Button variant="soft" size="sm" leadingIconElement={<AddIconMinimalist size={16} color="currentColor" />} disabled={adding} onClick={() => setAdding(true)}>Add Relatives</Button>
             </div>
-          ) : (
-            <div className={styles.list}>
-              {members.map((raw) => {
-                const m = resolveMember(raw, patients);
-                return (
-                  <div key={m.id} className={styles.person}>
-                    {m.relatedPatientId
-                      ? <Avatar variant="patient" size="M" initials={m.initials} />
-                      : <Tooltip label="Not a Fold Member"><Avatar variant="others" size="M" initials={m.initials} /></Tooltip>}
-                    <div className={styles.personText}>
-                      <span className={styles.personName}>
-                        {m.name}
-                      </span>
-                      <span className={styles.personMeta}>{[m.relationship, m.phone, m.email].filter(Boolean).join(' • ')}</span>
-                      {rolesOfMember(m).length > 0 && (
-                        <span className={styles.roles}>{rolesOfMember(m).map(r => <Badge key={r} size="xs" label={r} />)}</span>
-                      )}
+          </div>
+
+          {adding && !editingId && formCard}
+
+          <div>
+            {resolved.length === 0 ? (
+              !adding && (
+                <div className={styles.emptyCard}>
+                  <EmptyState size="sm" icon="solar:user-heart-linear" title="No family or caregivers added" />
+                </div>
+              )
+            ) : (
+              <div className={styles.list}>
+                {shown.map((m) => {
+                  if (m.id === editingId) return <Fragment key={m.id}>{formCard}</Fragment>;
+                  return (
+                    <div key={m.id} className={`${styles.person} ${adding ? styles.listDimmed : ''}`}>
+                      {m.relatedPatientId
+                        ? <Avatar variant="patient" size="M" initials={m.initials} />
+                        : <Tooltip label="Not a Fold Member"><Avatar variant="others" size="M" initials={m.initials} /></Tooltip>}
+                      <div className={styles.personText}>
+                        <span className={styles.personName}>{m.name}<AppAccessIcon member={m} /></span>
+                        <span className={styles.personMeta}>
+                          {[...relationParts(m), m.fromProfile && 'From profile'].filter(Boolean).map((part, i) => (
+                            <Fragment key={part}>
+                              {i > 0 && <span aria-hidden="true">•</span>}
+                              <span className={part === 'Emergency Contact' ? styles.emergency : undefined}>{part}</span>
+                            </Fragment>
+                          ))}
+                        </span>
+                      </div>
+                      <ActionButton icon="solar:menu-dots-linear" size="sm" tooltip="More actions" tooltipLeft disabled={adding} onClick={(e) => setRowMenu({ member: m, rect: e.currentTarget.getBoundingClientRect() })} />
                     </div>
-                    <ActionButton icon="solar:trash-bin-trash-linear" size="sm" tooltip="Remove" tooltipLeft onClick={() => setRemoving(m)} />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </section>
       </div>
-      {removing && (
-        <ConfirmDialog
-          variant="destructive"
-          title={`Remove ${removing.name}?`}
-          description="They're removed from this patient's family, caregivers and decision makers."
-          confirmLabel="Remove"
-          onCancel={() => setRemoving(null)}
-          onConfirm={async () => {
-            const ok = await removeFamilyMember(patientId, removing.id);
-            if (ok) toast.success('Family Member Removed Successfully');
-            else toast.error('This person could not be removed. Try again.');
-            setRemoving(null);
-          }}
+      {rowMenu && (
+        <FamilyMemberMenu
+          patient={patient}
+          member={rowMenu.member}
+          anchorRect={rowMenu.rect}
+          onClose={() => setRowMenu(null)}
+          onEdit={startEdit}
+          onManageAccess={target => setManaging(target.id)}
+          extraItems={[inviteItem(rowMenu.member)]}
+          onExtra={(key, m) => { if (key === 'invite') invite(m); }}
+        />
+      )}
+      {showHistory && <AppAccessHistoryDrawer patient={patient} onClose={() => setShowHistory(false)} />}
+      {managing && (
+        <ManageAppAccessDrawer
+          patient={patient}
+          member={resolveMember(members.find(x => x.id === managing) || {}, patients)}
+          onClose={() => setManaging(null)}
         />
       )}
     </Drawer>

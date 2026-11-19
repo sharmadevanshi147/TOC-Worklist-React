@@ -162,7 +162,7 @@ export function NewChatDrawer({ initialType = 'patient', onClose, onCreated, onI
 }
 
 // ── New SMS (Figma 1:33551, 1:33797) ─────────────────────────────────────
-export function NewSmsDrawer({ onClose, onSent, initialPatient }) {
+export function NewSmsDrawer({ onClose, onSent, initialPatient, initialSendTo }) {
   const { patients, me, line } = useCommsPeople();
   // The practice's SMS lines; without any configured, the one default line.
   const { lines, sample: linesSample } = usePracticeLines();
@@ -210,7 +210,8 @@ export function NewSmsDrawer({ onClose, onSent, initialPatient }) {
   ] : [];
   // Starts with the member picked; their contacts are added on purpose.
   const memberPick = (id) => (id && !id.startsWith('num:') ? ['patient'] : []);
-  const [picked, setPicked] = useState(() => memberPick(to));
+  // `initialSendTo`: contact ids to start with (e.g. SMS from a family row).
+  const [picked, setPicked] = useState(() => initialSendTo || memberPick(to));
   const [logForId, setLogForId] = useState(null);
   const [appliedTag, setAppliedTag] = useState(null);
   const [pickedFor, setPickedFor] = useState(to);

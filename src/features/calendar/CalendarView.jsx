@@ -5,7 +5,7 @@ import { CalendarToolbar } from './CalendarToolbar';
 import { DayResourceView } from './DayResourceView';
 import { MonthCountView } from './MonthCountView';
 import { HolidaysDrawer } from '../holidays/HolidaysDrawer';
-import { holidaysAt, holidaysForUser } from '../holidays/holidayUtils';
+import { blockingHolidays, holidaysAt, holidaysForUser } from '../holidays/holidayUtils';
 import { useCalendarView } from './useCalendarView';
 import { useAppStore } from '../../store/useAppStore';
 import { CalendarOooLayer } from '../ooo/CalendarOooLayer';
@@ -103,7 +103,11 @@ export function CalendarView() {
     if (calendar.filterLocation.length) return holidaysAt(holidayConfigs, calendar.filterLocation);
     return holidayConfigs;
   }, [focusUser, holidayConfigs, platformUsers, calendar.filterLocation]);
-  const holidayBlocks = !!focusUser || calendar.filterLocation.length > 0;
+  // Booking is blocked only by a holiday at every selected location.
+  const blocking = useMemo(
+    () => blockingHolidays(holidayConfigs, platformUsers, focusUser, calendar.filterLocation),
+    [focusUser, holidayConfigs, platformUsers, calendar.filterLocation],
+  );
 
   // Day columns, one per person: the picked users, else everyone with an
   // appointment or an OOO record that day, else the signed-in user.
@@ -243,7 +247,7 @@ export function CalendarView() {
           appointments={calendar.filteredAppointments}
           oooRecords={oooRecords}
           holidays={scopedHolidays}
-          holidayBlocks={holidayBlocks}
+          blockingHolidays={blocking}
           focusUser={focusUser}
           onOpenDay={calendar.openDay}
           onAdd={(day) => {
@@ -271,6 +275,7 @@ export function CalendarView() {
             focusUser={focusUser}
             records={oooRecords}
             holidays={scopedHolidays}
+            blockingHolidays={blocking}
             onHoliday={(h) => showToast(`${h.name} is a holiday here, so appointments can't be booked then.`)}
             renderTick={`${calendar.renderTick}-${calendar.filteredAppointments.length}`}
             onEdit={oooActions.openEdit}

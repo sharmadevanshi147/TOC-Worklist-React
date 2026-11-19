@@ -20,11 +20,13 @@ import styles from './HoverCard.module.css';
  *               outside, or Escape
  *  - className string: extra class on the trigger wrapper (e.g. to fill
  *               its cell)
+ *  - align     'start' | 'center': the card's left edge at the trigger's
+ *               (default), or centred under it (for a wide trigger)
  *  - portalContainer element: render the card inside it instead of
  *               document.body (e.g. a native <dialog>, whose top layer would
  *               cover a body-level card); placed relative to it
  */
-export function HoverCard({ trigger, children, width = 280, ariaLabel, openDelay = 150, flush = false, pinOnClick = false, className = '', portalContainer = null }) {
+export function HoverCard({ trigger, children, width = 280, ariaLabel, openDelay = 150, flush = false, pinOnClick = false, className = '', portalContainer = null, align = 'start' }) {
   const hover = useHoverIntent({ openDelay, closeDelay: 200 });
   const rect = hover.anchorRect;
   const [pinned, setPinned] = useState(false);
@@ -83,7 +85,7 @@ export function HoverCard({ trigger, children, width = 280, ariaLabel, openDelay
           className={`${styles.card} ${flush ? styles.flush : ''}`}
           style={{
             width,
-            left: Math.min(rect.left, window.innerWidth - width - 8) - (box?.left || 0),
+            left: Math.max(8, Math.min(align === 'center' ? rect.left + rect.width / 2 - width / 2 : rect.left, window.innerWidth - width - 8)) - (box?.left || 0),
             ...(below
               ? { top: rect.bottom + 4 - (box?.top || 0) }
               : { bottom: (box ? box.bottom : window.innerHeight) - rect.top + 4 }),

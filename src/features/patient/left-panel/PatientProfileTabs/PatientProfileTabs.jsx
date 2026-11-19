@@ -414,7 +414,7 @@ export function PatientProfileTabs({
 
         {currentTab === 'Outreach' && <OutreachTab memberName={patient?.name} classicForm />}
 
-        {currentTab === 'Summary' && <SummaryTab widgets={visibleWidgets(layout, 'Summary')} />}
+        {currentTab === 'Summary' && <SummaryTab widgets={visibleWidgets(layout, 'Summary')} patient={patient} />}
 
         {/* Tasks and Profile show here only in the QuickView drawer; on the
             full page they live in the right panel. */}

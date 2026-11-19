@@ -112,12 +112,19 @@
 .colHead > .holidayStrip { margin-top: auto; }
 .colHead > .oooStrip + .holidayStrip { margin-top: 0; }
 .stripText { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stripMeta { flex-shrink: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; font-weight: 400; }
+.stripHover { text-decoration: underline dotted; text-underline-offset: 2px; }
+/* With several locations the strip sits in the hover card's trigger,
+   which takes the strip's place at the foot of the header. */
+.colHead > .holidayStripWrap { display: flex; margin-top: auto; }
+.colHead > .oooStrip + .holidayStripWrap { margin-top: 0; }
+.holidayStripWrap .holidayStrip { flex: 1; min-width: 0; }
 .holidayBlock {
   position: absolute; left: 0; right: 0; z-index: 1;
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
   padding: 0; overflow: hidden;
-  border: 0.5px solid var(--accent-green);
-  background: var(--accent-light-green-tint); mix-blend-mode: multiply;
+  border: 0;
+  background: var(--neutral-50); mix-blend-mode: multiply;
   cursor: not-allowed;
 }
 .holidayBlock:focus-visible { outline: 2px solid var(--primary-300); outline-offset: -2px; }

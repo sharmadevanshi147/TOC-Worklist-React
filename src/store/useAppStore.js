@@ -17047,6 +17047,8 @@ export const useAppStore = create((set, get) => ({
     const key = String(patientId);
     const { familyMemberToRow } = await import('../features/patient/family/familyMembers');
     const member = {
+      // Everyone starts with no app access (the table's defaults), until staff set it.
+      accessLevel: 'none', accessBasis: 'consent', accessStatus: 'not_invited', consentStatus: 'not_needed',
       ...person,
       id: `fam-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       patientId: key,
@@ -17072,15 +17074,94 @@ export const useAppStore = create((set, get) => ({
   updateFamilyMember: async (patientId, id, patch) => {
     const key = String(patientId);
     if (!get().familyMembersLocal) {
+      const { accessToRow } = await import('../features/patient/family/familyAccess');
       const { error } = await supabase.from('patient_family_members').update({
+        ...('name' in patch ? { name: patch.name } : {}),
+        ...('relationship' in patch ? { relationship: patch.relationship } : {}),
         ...('email' in patch ? { email: patch.email || null } : {}),
         ...('phone' in patch ? { phone: patch.phone || null } : {}),
+        ...('additionalPhones' in patch ? { additional_phones: patch.additionalPhones || [] } : {}),
+        ...('isCaregiver' in patch ? { is_caregiver: !!patch.isCaregiver } : {}),
+        ...('isEmergencyContact' in patch ? { is_emergency_contact: !!patch.isEmergencyContact } : {}),
+        ...('decisionMaker' in patch ? {
+          decision_maker: patch.decisionMaker || null,
+          authority_type: patch.decisionMaker ? (patch.authorityType || null) : null,
+          document_ids: patch.decisionMaker ? (patch.documentIds || []) : [],
+        } : {}),
+        ...accessToRow(patch),
       }).eq('id', id);
-      if (error) return false;
+      // Until patient_family_access_migration.sql runs, access changes last
+      // only for the session instead of failing.
+      const missingColumn = error && (error.code === 'PGRST204' || error.code === '42703');
+      if (error && !missingColumn) return false;
     }
     set(s => ({ familyMembers: { ...s.familyMembers, [key]: (s.familyMembers[key] || []).map(m => (m.id === id ? { ...m, ...patch } : m)) } }));
     get().syncFamilyContacts(key);
     return true;
+  },
+  // App Access History (FCS-4729): every access action for a patient's family,
+  // newest first. { [patientId]: event[] }; session-only until
+  // family_access_events exists.
+  familyAccessEvents: {},
+  fetchFamilyAccessEvents: async (patientId) => {
+    const key = String(patientId);
+    const { data, error } = await supabase.from('family_access_events')
+      .select('*').eq('patient_id', key).order('created_at', { ascending: false });
+    if (error) {
+      // Until family_access_events exists: sample history built from the
+      // patient's family list, so the drawer shows how it reads.
+      const { sampleAccessEvents } = await import('../features/patient/family/familyAccess');
+      const sample = sampleAccessEvents(key, get().familyMembers[key] || []);
+      set(s => {
+        const local = (s.familyAccessEvents[key] || []).filter(e => e.localOnly);
+        return { familyAccessEvents: { ...s.familyAccessEvents, [key]: [...local, ...sample] } };
+      });
+      return;
+    }
+    const rows = (data || []).map(r => ({
+      id: r.id, patientId: r.patient_id, memberId: r.family_member_id, memberName: r.member_name,
+      action: r.action, fromLevel: r.from_level, toLevel: r.to_level, method: r.method,
+      note: r.note || '', actor: r.actor || '', at: r.created_at,
+    }));
+    // Keep any logged this session that the table doesn't have yet.
+    set(s => {
+      const local = (s.familyAccessEvents[key] || []).filter(e => e.localOnly && !rows.some(r => r.id === e.id));
+      return { familyAccessEvents: { ...s.familyAccessEvents, [key]: [...local, ...rows] } };
+    });
+  },
+  logFamilyAccessEvent: async (event) => {
+    const key = String(event.patientId);
+    const e = {
+      ...event,
+      patientId: key,
+      id: `fae-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      actor: event.actor ?? (get().currentUserProfile?.name || null),
+      at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('family_access_events').insert({
+      id: e.id, patient_id: key, family_member_id: e.memberId, member_name: e.memberName,
+      action: e.action, from_level: e.fromLevel || null, to_level: e.toLevel || null,
+      method: e.method || null, note: e.note || null, actor: e.actor,
+    });
+    set(s => ({ familyAccessEvents: { ...s.familyAccessEvents, [key]: [{ ...e, localOnly: !!error }, ...(s.familyAccessEvents[key] || [])] } }));
+  },
+  // One consent recorded by staff in Manage App Access (FCS-4729 AC39, AC40).
+  recordFamilyConsent: async (consent) => {
+    const row = {
+      id: `fac-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      family_member_id: consent.familyMemberId,
+      patient_id: String(consent.patientId),
+      proxy_name: consent.proxyName,
+      access_level: consent.level,
+      method: consent.method,
+      outcome: consent.outcome || 'accepted',
+      document_id: consent.documentId || null,
+      note: consent.note || null,
+      recorded_by: get().currentUserProfile?.name || null,
+    };
+    if (get().familyMembersLocal) return true;
+    const { error } = await supabase.from('family_access_consents').insert(row);
+    return !error || error.code === '42P01' || error.code === 'PGRST205';
   },
   removeFamilyMember: async (patientId, id) => {
     const key = String(patientId);

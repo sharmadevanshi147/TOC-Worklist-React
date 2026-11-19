@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Icon } from '../../components/Icon/Icon';
 import { OOO_ICON, personKey, recordPerson, recordsFor, recordsOnDate } from '../ooo/oooUtils';
 import { HolidayBadgeIcon } from '../../components/Icon/HolidayBadgeIcon';
+import { HolidayHoverCard } from '../holidays/HolidayHoverCard';
 import styles from './MonthCountView.module.css';
 
 const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
@@ -25,13 +26,13 @@ const isoToAppt = (s) => { const [y, m, d] = s.split('-'); return `${m}-${d}-${y
  * @param {object[]} props.oooRecords
  * @param {{ id: string, name: string }} [props.focusUser] – The one user picked, if any
  * @param {object[]} [props.holidays]    – Holidays for what's shown (the user's or filtered locations, else all)
- * @param {boolean}  [props.holidayBlocks] – Holidays block booking here (a user or location is picked)
+ * @param {object[]} [props.blockingHolidays] – Holidays at every selected location (these block booking)
  * @param {function} props.onOpenDay     – (iso) => void, a day's Day view
  * @param {function} props.onAdd         – (iso) => void, book on that day
  * @param {function} props.onOpenOooRecord – (record) => void, the focus user's record that day
  * @param {function} props.onOpenOooDay  – (iso) => void, everyone out that day
  */
-export function MonthCountView({ date, appointments, oooRecords, holidays = [], holidayBlocks = false, focusUser, onOpenDay, onAdd, onOpenOooRecord, onOpenOooDay }) {
+export function MonthCountView({ date, appointments, oooRecords, holidays = [], blockingHolidays = [], focusUser, onOpenDay, onAdd, onOpenOooRecord, onOpenOooDay }) {
   const todayIso = iso(new Date());
   const weeks = useMemo(() => {
     const [y, m] = date.split('-').map(Number);
@@ -73,7 +74,7 @@ export function MonthCountView({ date, appointments, oooRecords, holidays = [], 
           const othersOut = !focusUser ? new Set(on.map(r => personKey(recordPerson(r)))).size : 0;
           const dayNum = day.slice(8);
           const dayHolidays = recordsOnDate(holidays, day);
-          const blockedByHoliday = holidayBlocks && dayHolidays.length > 0;
+          const blockedByHoliday = recordsOnDate(blockingHolidays, day).length > 0;
           return (
             <div
               key={day}
@@ -113,12 +114,20 @@ export function MonthCountView({ date, appointments, oooRecords, holidays = [], 
                   Out of Office
                 </button>
               )}
-              {/* Holidays that day, under any Out of Office line. */}
+              {/* Holidays that day, under any Out of Office line. Hover lists
+                  its locations ("View N more" opens the holiday). */}
               {dayHolidays.slice(0, 2).map(h => (
-                <span key={h.id} className={styles.holidayLine} title={`Holiday: ${h.name}`}>
-                  <HolidayBadgeIcon size={14} />
-                  <span className={styles.holidayName}>{h.name}</span>
-                </span>
+                <HolidayHoverCard key={h.id} holidays={[h]} className={styles.holidayHover}>
+                  <span className={styles.holidayLine}>
+                    <HolidayBadgeIcon size={14} />
+                    <span className={styles.holidayName}>
+                      {h.name}
+                      {(h.locations || []).length > 0 && (
+                        <span className={`${styles.holidayWhere} ${h.locations.length > 1 ? styles.holidayCount : ''}`}> at {h.locations.length === 1 ? h.locations[0] : `${h.locations.length} locations`}</span>
+                      )}
+                    </span>
+                  </span>
+                </HolidayHoverCard>
               ))}
               {dayHolidays.length > 2 && <span className={styles.line}>+{dayHolidays.length - 2} more holidays</span>}
               {othersOut > 0 && (

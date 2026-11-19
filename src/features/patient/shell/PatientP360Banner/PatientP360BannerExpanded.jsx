@@ -10,6 +10,7 @@ import { Banner } from '../../../../components/Banner/Banner';
 import { EmptyState } from '../../../../components/EmptyState/EmptyState';
 import { MenuPopover } from '../../../../components/MenuPopover/MenuPopover';
 import { usePatientFamily } from '../../family/usePatientFamily';
+import { AppAccessIcon } from '../../family/AppAccessIcon';
 import { usePatientCareTeam } from '../../care-team/usePatientCareTeam';
 import { Skeleton } from '../../../../components/Skeleton/Skeleton';
 import styles from './PatientP360Banner.module.css';
@@ -148,12 +149,12 @@ export function ExpandedAppointments({ p, className }) {
 }
 
 // Family and Caregiver / Care Team (Figma P360 Revamp 2880:369202).
-function PersonRow({ initials, variant, name, tag, sub }) {
+function PersonRow({ initials, variant, name, tag, sub, nameAddon = null }) {
   return (
     <div className={styles.personRow}>
       <Avatar variant={variant} size="S" initials={initials} />
       <div className={styles.personText}>
-        <span className={styles.personName}>{name}{tag && <Badge size="xs" label={tag} />}</span>
+        <span className={styles.personName}>{name}{nameAddon}{tag && <Badge size="xs" label={tag} />}</span>
         <span className={styles.personRole}>{sub}</span>
       </div>
     </div>
@@ -218,7 +219,7 @@ export function ExpandedFamily({ p, patientId, visible = true, className, profil
           ) : family.length > 0 ? (
             <>
               <div className={styles.people}>
-                {family.map((m, i) => <PersonRow key={i} variant="patient" initials={m.initials} name={m.name} sub={m.relation} />)}
+                {family.map((m, i) => <PersonRow key={i} variant="patient" initials={m.initials} name={m.name} sub={m.relation} nameAddon={m.member ? <AppAccessIcon member={m.member} /> : null} />)}
               </div>
               <ViewAll onClick={onManage} />
             </>

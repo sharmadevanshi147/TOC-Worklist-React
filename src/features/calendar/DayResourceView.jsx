@@ -3,7 +3,8 @@ import { Icon } from '../../components/Icon/Icon';
 import { OooIcon } from '../../components/Icon/OooIcon';
 import { Tooltip } from '../../components/Tooltip/Tooltip';
 import { HolidayBadgeIcon } from '../../components/Icon/HolidayBadgeIcon';
-import { holidaysForUser } from '../holidays/holidayUtils';
+import { blockingHolidays, holidaysForUser } from '../holidays/holidayUtils';
+import { HolidayHoverCard } from '../holidays/HolidayHoverCard';
 import { apptPerson, canEdit, daySpan, personKey, recordsFor, recordsOnDate, samePerson } from '../ooo/oooUtils';
 import styles from './DayResourceView.module.css';
 
@@ -71,11 +72,14 @@ export function DayResourceView({ date, users, appointments, oooRecords, holiday
         return start == null ? null : { appt: a, start, end: Math.max(end, start + 15) };
       })
       .filter(Boolean);
-    // Holidays at this user's locations, green under any OOO time.
-    const hol = recordsOnDate(holidaysForUser(holidays, people, person, holidayLocations), date)
+    // Holidays at this user's locations (the header strip); only those at
+    // every selected location block booking (green, under any OOO time).
+    const spans = (list) => recordsOnDate(list, date)
       .map(h => ({ holiday: h, span: daySpan(h, date) }))
       .filter(x => x.span);
-    return { person, key: personKey(person), name, ooo, appts, hol };
+    const hol = spans(holidaysForUser(holidays, people, person, holidayLocations));
+    const block = spans(blockingHolidays(holidays, people, person, holidayLocations));
+    return { person, key: personKey(person), name, ooo, appts, hol, block };
   }), [users, onDay, appointments, date, holidays, people, holidayLocations]);
 
   const clickSlot = (col, slot) => {
@@ -87,7 +91,7 @@ export function DayResourceView({ date, users, appointments, oooRecords, holiday
       if (canEdit(inOoo.record)) onEditOoo(inOoo.record);
       return;
     }
-    const inHoliday = col.hol.find(({ span }) => minute < span.end * 1440 && minute + SLOT_MIN > span.start * 1440);
+    const inHoliday = col.block.find(({ span }) => minute < span.end * 1440 && minute + SLOT_MIN > span.start * 1440);
     if (inHoliday) {
       onBlocked(`${inHoliday.holiday.name} is a holiday here, so appointments can't be booked then.`);
       return;
@@ -128,10 +132,17 @@ export function DayResourceView({ date, users, appointments, oooRecords, holiday
             )}
             {/* A whole-day holiday, under the Out of Office strip. */}
             {col.hol.filter(({ span }) => span.start <= 0 && span.end >= 1).slice(0, 1).map(({ holiday }) => (
-              <span key={holiday.id} className={styles.holidayStrip}>
-                <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
-                <span className={styles.stripText}>{holiday.name}</span>
-              </span>
+              <HolidayHoverCard key={holiday.id} holidays={[holiday]} className={styles.holidayStripWrap}>
+                <span className={styles.holidayStrip}>
+                  <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
+                  <span className={styles.stripText}>{holiday.name}</span>
+                  {(holiday.locations || []).length > 0 && (
+                    <span className={`${styles.stripMeta} ${holiday.locations.length > 1 ? styles.stripHover : ''}`}>
+                      at {holiday.locations.length === 1 ? holiday.locations[0] : `${holiday.locations.length} locations`}
+                    </span>
+                  )}
+                </span>
+              </HolidayHoverCard>
             ))}
           </div>
         ))}
@@ -161,10 +172,11 @@ export function DayResourceView({ date, users, appointments, oooRecords, holiday
             {/* Figma Eventus 17587:116989: the OOO time as an outlined
                 area; its label lives in the header so it can't collide
                 with an appointment. */}
-            {/* Holiday time: green, not bookable (a click says why), under
-                OOO time. Part of a day is labelled along its top. */}
-            {col.hol.map(({ holiday, span }) => (
-              <Tooltip key={holiday.id} label={`Holiday: ${holiday.name}`} followCursor>
+            {/* Holiday time at every selected location: greyed (disabled),
+                not bookable (a click says why), under OOO time. Part of a
+                day is labelled along its top. */}
+            {col.block.map(({ holiday, span }) => (
+              <Tooltip key={holiday.id} label="Appointments can't be booked on a holiday." followCursor>
                 <button
                   type="button"
                   className={styles.holidayBlock}

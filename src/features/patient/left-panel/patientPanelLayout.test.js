@@ -46,7 +46,7 @@ describe('customizeRows', () => {
     expect(rows.map(r => [r.label, r.on])).toContainEqual(['CRM', false]);
     const summary = rows.find(r => r.key === 'Summary');
     expect(summary.widgets.find(w => w.key === 'insurance').on).toBe(false);
-    expect(summary.widgets).toHaveLength(9);
+    expect(summary.widgets).toHaveLength(10);
   });
 });
 

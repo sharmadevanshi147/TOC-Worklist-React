@@ -7,11 +7,13 @@ import { CareJourneysWidget } from '../../../../shared/widgets/CareJourneysWidge
 import { SubscriptionWidget } from '../../../../shared/widgets/SubscriptionWidget/SubscriptionWidget.jsx';
 import { ActiveAutomationsWidget } from '../../../../shared/widgets/ActiveAutomationsWidget/ActiveAutomationsWidget.jsx';
 import { InsuranceWidget } from '../../../../shared/widgets/InsuranceWidget/InsuranceWidget.jsx';
+import { CaregiverFamilyWidget } from '../../../../shared/widgets/CaregiverFamilyWidget/CaregiverFamilyWidget.jsx';
 import styles from './SummaryTab.module.css';
 
 const WIDGETS = {
   'health-map': HealthMapWidget,
   synopsis: PatientSynopsisWidget,
+  caregivers: CaregiverFamilyWidget,
   utilization: CareUtilizationWidget,
   'prior-auth': PriorAuthWidget,
   'population-groups': PopulationGroupsWidget,
@@ -23,12 +25,12 @@ const WIDGETS = {
 const ALL_WIDGETS = Object.keys(WIDGETS);
 
 /** `widgets`: the keys to show, in order (More > Customize); all by default. */
-export function SummaryTab({ widgets = ALL_WIDGETS }) {
+export function SummaryTab({ widgets = ALL_WIDGETS, patient }) {
   return (
     <div className={styles.wrapper}>
       {widgets.map((key) => {
         const Widget = WIDGETS[key];
-        return Widget ? <Widget key={key} /> : null;
+        return Widget ? <Widget key={key} patient={patient} /> : null;
       })}
     </div>
   );

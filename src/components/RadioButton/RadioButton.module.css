@@ -23,10 +23,12 @@
   box-shadow: 0 0 0 2px var(--primary-100);
 }
 
-/* ── Disabled state ── */
+/* ── Disabled state ──
+   No fading: the label stays readable and the circle turns grey (Figma
+   Jan-present 2026 3067:16249). Rules sit after the checked state below so
+   they win. */
 .radioOptionDisabled {
   cursor: not-allowed;
-  opacity: 0.5;
 }
 
 /* ── Radio circle ── */
@@ -76,4 +78,17 @@
 
 .radioLabelChecked {
   color: var(--neutral-400);
+}
+
+/* ── Disabled (after checked, so it wins) ── */
+.radioOptionDisabled .radioCircle {
+  border-color: var(--neutral-150);
+  background: var(--neutral-50);
+}
+.radioOptionDisabled .radioCircleChecked {
+  border-color: var(--neutral-150);
+  background: var(--neutral-150);
+}
+.radioOptionDisabled .radioCircleChecked::after {
+  background: var(--neutral-0);
 }

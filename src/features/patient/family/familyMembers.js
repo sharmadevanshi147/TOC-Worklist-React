@@ -1,3 +1,5 @@
+import { rowToAccess } from './familyAccess';
+
 /**
  * A patient's family, caregivers and decision makers (patient_family_members).
  * One entry per person; Send To reads them as role contacts (familyToContacts).
@@ -28,6 +30,7 @@ export const rowToFamilyMember = (r) => ({
   authorityType: r.authority_type || null,
   documentIds: r.document_ids || [],
   createdAt: r.created_at,
+  ...rowToAccess(r),
 });
 
 export const familyMemberToRow = (m) => ({
@@ -85,3 +88,31 @@ export function familyToContacts(members = [], patients = []) {
     }));
   });
 }
+
+/**
+ * A family entry from the patient's profile record (p360 `family_members`,
+ * relation like "Sister (Caregiver)") in the family-list shape, not saved.
+ */
+export function profileEntryToMember(f, i, patientId) {
+  const [, rel = '', roles = ''] = /^([^(]*)(?:\(([^)]*)\))?/.exec(String(f.relation || '')) || [];
+  return {
+    id: `profile-${i}`, fromProfile: true, patientId: String(patientId), name: f.name, initials: f.initials,
+    relationship: rel.trim() || 'Other', phone: f.phone || '', email: f.email || '', phoneHours: f.phone_hours || '',
+    isCaregiver: /caregiver/i.test(roles), isEmergencyContact: /emergency/i.test(roles),
+    decisionMaker: null, documentIds: [], accessLevel: 'none', accessBasis: 'consent',
+    accessStatus: 'not_invited', consentStatus: 'not_needed',
+  };
+}
+
+/**
+ * The relationship then each role, for the "Sister • Caregiver • Emergency
+ * Contact" line. `legal: false` leaves out "(Legal Authority)" (the Summary
+ * tab's compact rows).
+ */
+export const relationParts = (m, { legal = true } = {}) => [
+  m.relationship,
+  m.isCaregiver && 'Caregiver',
+  // A decision maker backed by a Legal Authority document holds legal authority.
+  m.decisionMaker && (legal && m.authorityType && (m.documentIds || []).length ? `${m.decisionMaker} (Legal Authority)` : m.decisionMaker),
+  m.isEmergencyContact && 'Emergency Contact',
+].filter(Boolean);

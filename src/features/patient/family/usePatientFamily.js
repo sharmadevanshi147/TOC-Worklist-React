@@ -18,7 +18,8 @@ export function usePatientFamily(patientId, profileFamily = [], active = true) {
   const family = useMemo(() => {
     const extra = (added || []).map((m) => {
       const r = resolveMember(m, patients || []);
-      return { name: r.name, relation: r.relationship, initials: r.initials };
+      // `member`: the saved person, for their app access icon.
+      return { name: r.name, relation: r.relationship, initials: r.initials, member: r };
     });
     const names = new Set(extra.map(x => x.name.toLowerCase()));
     return [...(profileFamily || []).filter(f => !names.has(String(f.name).toLowerCase())), ...extra];

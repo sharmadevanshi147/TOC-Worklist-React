@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './Tooltip.module.css';
 
@@ -38,6 +38,9 @@ export function Tooltip({ label, children, placement = 'top', className, maxWidt
   const triggerRef = useRef(null);
   const openTimer = useRef(null);
   const [rect, setRect] = useState(null);
+  const bubbleRef = useRef(null);
+  // A top or bottom bubble that would run off the screen opens on the other side.
+  const [flipped, setFlipped] = useState(false);
 
   // A zero-size rect at the pointer, so the placement maths below applies unchanged.
   const pointRect = (e) => ({ left: e.clientX, right: e.clientX, width: 0, top: e.clientY - 4, bottom: e.clientY + 16 });
@@ -54,6 +57,7 @@ export function Tooltip({ label, children, placement = 'top', className, maxWidt
   const close = () => {
     if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null; }
     setRect(null);
+    setFlipped(false);
   };
   useEffect(() => () => clearTimeout(openTimer.current), []);
 
@@ -62,7 +66,7 @@ export function Tooltip({ label, children, placement = 'top', className, maxWidt
   // clipped or squeezed.
   // A side bubble with no room on its side opens on the other one instead
   // (an option in a list that runs to the right edge of a drawer).
-  let place = placement;
+  let place = flipped ? (placement === 'bottom' ? 'top' : 'bottom') : placement;
   if (rect && (placement === 'left' || placement === 'right')) {
     const need = (maxWidth || 200) + 8;
     if (placement === 'right' && rect.right + need > window.innerWidth && rect.left - need >= 0) place = 'left';
@@ -99,6 +103,15 @@ export function Tooltip({ label, children, placement = 'top', className, maxWidt
     style.textAlign = 'left';
   }
 
+  useLayoutEffect(() => {
+    if (!rect || flipped || (placement !== 'top' && placement !== 'bottom')) return;
+    const b = bubbleRef.current?.getBoundingClientRect();
+    if (!b) return;
+    const off = placement === 'top' ? b.top < 8 : b.bottom > window.innerHeight - 8;
+    const room = placement === 'top' ? window.innerHeight - rect.bottom : rect.top;
+    if (off && room > b.height + 8) setFlipped(true);
+  }, [rect, flipped, placement]);
+
   return (
     <span
       ref={triggerRef}
@@ -112,6 +125,7 @@ export function Tooltip({ label, children, placement = 'top', className, maxWidt
       {children}
       {rect && label && createPortal(
         <span
+          ref={bubbleRef}
           role="tooltip"
           className={[
             styles.bubble,

@@ -90,7 +90,7 @@ export function OooAllRecordsDrawer({ highlightDate, highlightId, onClose }) {
       width={1100}
       onClose={onClose}
       headerRight={<>{all.tools}<span className={styles.headerDivider} aria-hidden="true" /></>}
-      banner={all.filterRow || undefined}
+      banner={all.filterRow ? <div className={styles.bannerRow}>{all.filterRow}</div> : undefined}
       noCloseDivider
       bodyClassName={styles.flushBody}
     >

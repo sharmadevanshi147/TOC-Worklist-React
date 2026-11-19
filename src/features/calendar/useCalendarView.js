@@ -12,7 +12,7 @@ import {
   MONTH_NAMES,
 } from './calendarUtils';
 import { apptPerson, canEdit, personKey, personOf, recordsFor, samePerson } from '../ooo/oooUtils';
-import { holidayDuring, holidaysAt, holidaysForUser } from '../holidays/holidayUtils';
+import { blockingHolidays, holidayDuring } from '../holidays/holidayUtils';
 import styles from './CalendarView.module.css';
 
 // "8:30 am" → "9:00 am" (reminders have no end time; show a 30-min block).
@@ -340,12 +340,11 @@ export function useCalendarView({ onOooSlot } = {}) {
       }
     }
 
-    // Nor can holiday time at the shown provider's locations (or, in Month
-    // with no one picked, the filtered locations).
+    // Nor can holiday time, when the holiday covers every selected location
+    // (the Location filter, else the shown provider's). At only some of them,
+    // the others are still open.
     if (from != null) {
-      const scoped = oooUser ? holidaysForUser(holidayConfigs, platformUsers, oooUser, filterLocation)
-        : currentView === 'month-grid' && filterLocation.length ? holidaysAt(holidayConfigs, filterLocation) : [];
-      const holiday = holidayDuring(scoped, from, to);
+      const holiday = holidayDuring(blockingHolidays(holidayConfigs, platformUsers, oooUser, filterLocation), from, to);
       if (holiday) {
         showToast(`${holiday.name} is a holiday here, so appointments can't be booked then.`);
         return;

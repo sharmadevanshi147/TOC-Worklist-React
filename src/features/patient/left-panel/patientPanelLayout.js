@@ -55,6 +55,7 @@ export const PANEL_TABS = [
     widgets: [
       { key: 'health-map', label: 'Health Map' },
       { key: 'synopsis', label: 'Patient Synopsis' },
+      { key: 'caregivers', label: 'Family & Caregiver' },
       { key: 'utilization', label: 'Care Utilization Summary' },
       { key: 'prior-auth', label: 'Prior Authorization Requests' },
       { key: 'population-groups', label: 'Population Groups' },

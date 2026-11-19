@@ -110,7 +110,7 @@ export function ComposeEmailDrawer({ initial = {}, onClose, onSent }) {
   ];
 
   // Comms (no patient given): who in Send To ('patient' or a contact id).
-  const [picked, setPicked] = useState(() => (initial.patient?.email ? ['patient'] : []));
+  const [picked, setPicked] = useState(() => initial.sendTo || (initial.patient?.email ? ['patient'] : []));
   const [verifyId, setVerifyId] = useState(DEFAULT_ID_VERIFICATION);
   const [generating, setGenerating] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);

@@ -8,6 +8,8 @@ import { ActionButton } from '../../../components/ActionButton/ActionButton';
 import { MenuPopover } from '../../../components/MenuPopover/MenuPopover';
 import { ReasonDialog } from '../../../components/ReasonDialog/ReasonDialog';
 import { withdrawAccessRequest } from './familyActions';
+import { ConsentDocumentLink } from './ConsentDocumentLink';
+import { Icon } from '../../../components/Icon/Icon';
 import styles from './AppAccessHistoryDrawer.module.css';
 
 const LEVEL = (l) => ACCESS_LEVELS[l] || ACCESS_LEVELS.none;
@@ -17,8 +19,13 @@ const METHOD = {
   sms: 'SMS', email: 'Email',
 };
 
-// Each action: its filter name, its line, and its rail icon.
+// Each action: its filter name, its line, and its rail icon. `full`: the line
+// already names the member, so it isn't followed by "for [name]".
 const ACTIONS = {
+  member_added: { filter: 'Family list', icon: 'solar:user-plus-linear', tone: 'info', full: true, text: e => `${e.memberName} added to the family list` },
+  member_removed: { filter: 'Family list', icon: 'solar:trash-bin-2-linear', tone: 'neutral', full: true, text: e => `${e.memberName} removed from the family list` },
+  roles_changed: { filter: 'Family list', icon: 'solar:user-id-linear', tone: 'info', text: () => 'Roles updated' },
+  details_updated: { filter: 'Family list', icon: 'solar:pen-linear', tone: 'info', text: () => 'Family details updated' },
   requested: { filter: 'Requested', icon: 'solar:clock-circle-linear', tone: 'warning', text: e => `${LEVEL(e.toLevel)} access requested` },
   changed: { filter: 'Changed', icon: 'solar:pen-linear', tone: 'info', text: e => (e.fromLevel && e.fromLevel !== e.toLevel ? `Access changed from ${LEVEL(e.fromLevel)} to ${LEVEL(e.toLevel)}` : `${LEVEL(e.toLevel)} access updated`) },
   consent_recorded: { filter: 'Consent', icon: 'solar:like-linear', tone: 'success', text: () => 'Consent recorded' },
@@ -28,7 +35,6 @@ const ACTIONS = {
   withdrawn: { filter: 'Ended or removed', icon: 'solar:undo-left-linear', tone: 'neutral', text: e => `Pending ${LEVEL(e.fromLevel)} request withdrawn` },
   removed: { filter: 'Ended or removed', icon: 'solar:forbidden-circle-linear', tone: 'neutral', text: e => `${LEVEL(e.fromLevel)} access removed` },
   ended: { filter: 'Ended or removed', icon: 'solar:calendar-mark-linear', tone: 'neutral', text: e => `${LEVEL(e.toLevel || e.fromLevel)} access ended` },
-  paused: { filter: 'Ended or removed', icon: 'solar:pause-circle-linear', tone: 'warning', text: () => 'Access paused' },
 };
 // Rail tile colour, as the shared icon avatar variants.
 const TONE = { success: 'success', warning: 'warning', error: 'error', info: 'primary', neutral: 'others' };
@@ -83,12 +89,22 @@ export function AppAccessHistoryDrawer({ patient, memberName = null, onClose }) 
       if (label !== day) { out.push({ t: 'group', label }); day = label; }
       out.push({
         t: 'access',
-        title: <span className={styles.title}>{`${a.text(e)} for ${e.memberName}`}</span>,
+        title: <span className={styles.title}>{a.full ? a.text(e) : `${a.text(e)} for ${e.memberName}`}</span>,
         date: dateText(e.at),
         time: timeText(e.at),
         by: e.actor || null,
-        context: METHOD[e.method] || null,
-        outcome: e.note || null,
+        // The method (or, for family-list entries, the relationship).
+        context: METHOD[e.method] || e.method || null,
+        // A Written consent links its signed form, kept in the patient's Documents.
+        outcome: e.documentId ? (
+          <span className={styles.outcomeRow}>
+            {e.note && <span>{e.note}</span>}
+            <span className={styles.attachment}>
+              <Icon name="solar:paperclip-linear" size={14} color="var(--neutral-300)" />
+              <ConsentDocumentLink documentId={e.documentId} name={e.documentName} />
+            </span>
+          </span>
+        ) : (e.note || null),
         outcomeColor: 'var(--neutral-300)',
         trailing: openRequest(e) ? (
           <ActionButton

@@ -68,6 +68,12 @@ export function verifySummary(verify) {
   return { methods: chosen.map(methodWord).join(', '), rule };
 }
 
+/** "Verify first name, phone number (both required) to access link." */
+export function verifySummaryText(v) {
+  const { methods, rule } = verifySummary(v);
+  return `Verify ${methods}${rule ? ` (${rule})` : ''} to access link.`;
+}
+
 // Verify ID protects links: each one is swapped for a secure link that opens
 // the original after the recipient verifies. A protected SMS also starts
 // with this line, which counts toward the SMS limit.

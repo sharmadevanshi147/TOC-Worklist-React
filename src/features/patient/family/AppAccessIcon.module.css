@@ -1,0 +1,5 @@
+/* Wraps the badge so the tooltip has a single element to anchor to. */
+.badge { display: inline-flex; flex-shrink: 0; }
+/* Solar draws on a 24-unit grid, the phone-with-check on 16: 1.5 on 24 is the
+   phone's 1 on 16, so every state's icon has the same line weight. */
+.badge svg:global(.iconify) [stroke]:not([stroke="none"]) { stroke-width: 1.5 !important; }

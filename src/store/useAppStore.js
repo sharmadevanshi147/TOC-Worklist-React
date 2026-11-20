@@ -7417,6 +7417,37 @@ export const useAppStore = create((set, get) => ({
   // (org_settings_outreach_default_recipient_migration.sql).
   outreachDefaultRecipient: 'pcp',
   orgFeaturesDidFetch: false,
+  // Settings > Patient App (FCS-4729): the org's family access and app
+  // feature rules, one row in patient_app_settings. Null until fetched; the
+  // screen merges it over its defaults, so a missing table just shows those.
+  patientAppSettings: null,
+  patientAppSettingsLoading: false,
+  patientAppSettingsFetched: false,
+  fetchPatientAppSettings: async () => {
+    if (get().patientAppSettingsLoading) return;
+    set({ patientAppSettingsLoading: true });
+    const { data, error } = await supabase.from('patient_app_settings')
+      .select('family_access, feature_access, updated_by, updated_at').eq('id', 'org').maybeSingle();
+    if (error) console.warn('fetchPatientAppSettings error:', error.message);
+    set({
+      patientAppSettings: data ? {
+        familyAccess: data.family_access || {}, featureAccess: data.feature_access || {},
+        updatedBy: data.updated_by || null, updatedAt: data.updated_at || null,
+      } : null,
+      patientAppSettingsLoading: false,
+      patientAppSettingsFetched: true,
+    });
+  },
+  savePatientAppSettings: async ({ familyAccess, featureAccess }) => {
+    const updatedBy = get().currentActorName();
+    const updatedAt = new Date().toISOString();
+    const { error } = await supabase.from('patient_app_settings').upsert({
+      id: 'org', family_access: familyAccess, feature_access: featureAccess, updated_by: updatedBy, updated_at: updatedAt,
+    }, { onConflict: 'id' });
+    if (error) { console.warn('savePatientAppSettings error:', error.message); return false; }
+    set({ patientAppSettings: { familyAccess, featureAccess, updatedBy, updatedAt } });
+    return true;
+  },
   fetchOrgFeatures: async () => {
     if (useAppStore.getState().orgFeaturesDidFetch) return;
     set({ orgFeaturesDidFetch: true });
@@ -17068,6 +17099,15 @@ export const useAppStore = create((set, get) => ({
     const kept = current.map(m => (m.id === displaced?.id ? { ...m, decisionMaker: null, authorityType: null, documentIds: [] } : m));
     set(s => ({ familyMembers: { ...s.familyMembers, [key]: [...kept, member] } }));
     get().syncFamilyContacts(key);
+    // App Access History. A profile-record person saved so staff can change
+    // them is already on the list, so that isn't an "added".
+    if (!person._adopted) {
+      const { rolesOfMember } = await import('../features/patient/family/familyMembers');
+      get().logFamilyAccessEvent({
+        patientId: key, memberId: member.id, memberName: member.name, action: 'member_added',
+        method: member.relationship, note: rolesOfMember(member).map(r => (r === 'Care Giver' ? 'Caregiver' : r)).join(', '),
+      });
+    }
     return member;
   },
   // Change one person's details (e.g. the email Send To asked for).
@@ -17122,6 +17162,7 @@ export const useAppStore = create((set, get) => ({
       id: r.id, patientId: r.patient_id, memberId: r.family_member_id, memberName: r.member_name,
       action: r.action, fromLevel: r.from_level, toLevel: r.to_level, method: r.method,
       note: r.note || '', actor: r.actor || '', at: r.created_at,
+      documentId: r.document_id || null, documentName: r.document_name || null,
     }));
     // Keep any logged this session that the table doesn't have yet.
     set(s => {
@@ -17142,6 +17183,7 @@ export const useAppStore = create((set, get) => ({
       id: e.id, patient_id: key, family_member_id: e.memberId, member_name: e.memberName,
       action: e.action, from_level: e.fromLevel || null, to_level: e.toLevel || null,
       method: e.method || null, note: e.note || null, actor: e.actor,
+      document_id: e.documentId || null, document_name: e.documentName || null,
     });
     set(s => ({ familyAccessEvents: { ...s.familyAccessEvents, [key]: [{ ...e, localOnly: !!error }, ...(s.familyAccessEvents[key] || [])] } }));
   },
@@ -17165,12 +17207,14 @@ export const useAppStore = create((set, get) => ({
   },
   removeFamilyMember: async (patientId, id) => {
     const key = String(patientId);
+    const leaving = (get().familyMembers[key] || []).find(m => m.id === id);
     if (!get().familyMembersLocal) {
       const { error } = await supabase.from('patient_family_members').delete().eq('id', id);
       if (error) return false;
     }
     set(s => ({ familyMembers: { ...s.familyMembers, [key]: (s.familyMembers[key] || []).filter(m => m.id !== id) } }));
     get().syncFamilyContacts(key);
+    if (leaving) get().logFamilyAccessEvent({ patientId: key, memberId: id, memberName: leaving.name, action: 'member_removed', method: leaving.relationship });
     return true;
   },
 

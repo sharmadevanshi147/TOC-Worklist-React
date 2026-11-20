@@ -232,6 +232,7 @@ export function AddFamilyDrawer({ patient, prefill = null, profileFamily: profil
       });
       setSaving(false);
       if (!ok) { toast.error('These changes could not be saved. Try again.'); return; }
+      logFamilyAccessEvent({ patientId, memberId: editingId, memberName: name, action: 'details_updated', method: form.relationship });
       toast.success('Family Member Updated Successfully');
       closeCard();
       return;

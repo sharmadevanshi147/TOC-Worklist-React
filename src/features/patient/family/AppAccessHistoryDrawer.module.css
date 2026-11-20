@@ -7,3 +7,5 @@
 }
 .loading { margin: 0; font-size: var(--font-sm); color: var(--neutral-300); }
 .title { font-weight: 500; }
+.outcomeRow { display: inline-flex; flex-direction: column; gap: var(--space-1); }
+.attachment { display: inline-flex; align-items: center; gap: var(--space-1); }

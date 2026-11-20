@@ -1,0 +1,79 @@
+/* Settings > Patient App: Family Access and Feature Access (FCS-4729).
+   One column read top to bottom; every setting is a row with its name and
+   explanation on the left and its control on the right. */
+.wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--neutral-0); }
+.scroll { flex: 1; overflow-y: auto; }
+/* Content is about 680px wide, centred, whatever the screen width. */
+.page { box-sizing: content-box; max-width: calc(var(--space-10) * 17); margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-10); display: flex; flex-direction: column; gap: var(--space-8); }
+
+/* Section: a plain heading, then its rows in bordered groups. Whitespace
+   between sections does the outer grouping. */
+.card { min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+/* A heading action (Add State) lines up with the title, not the description. */
+.cardHead { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+
+/* Group: a box of rows (no overflow clip, so dropdowns open past it) */
+.group { border: 0.5px solid var(--neutral-150); border-radius: 8px; background: var(--neutral-0); }
+.group > .settingRow, .group > .featureRow, .group > .featureGroupHead { padding-left: var(--space-4); padding-right: var(--space-4); }
+.group > :last-child { border-bottom: 0; }
+.group > .subRows { padding: var(--space-3) var(--space-4); }
+.cardHeading { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.cardTitle { margin: 0; font-size: var(--font-lg); font-weight: 500; line-height: 1.2; color: var(--neutral-400); }
+.cardDesc { margin: 0; font-size: var(--font-md); line-height: 1.4; color: var(--neutral-300); }
+
+/* Setting row */
+.settingRow {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) 0; border-bottom: 0.5px solid var(--neutral-150);
+}
+.stacked { flex-wrap: wrap; }
+.stacked .settingControl { width: 100%; flex-basis: 100%; }
+/* Icon before a label: top-aligned with the label's first line. */
+.settingIcon { flex-shrink: 0; display: inline-flex; align-self: flex-start; margin-top: calc(var(--space-1) / 2); color: var(--neutral-300); }
+.settingText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(var(--space-1) / 2); }
+.settingLabel { font-size: var(--font-base); font-weight: 400; line-height: 1.3; color: var(--neutral-400); }
+.settingHelp { font-size: var(--font-md); line-height: 1.4; color: var(--neutral-300); }
+/* Fixed width, content flush to the right edge: switches, number fields,
+   dropdowns and levels all end on the same line down the page. */
+.settingControl { flex-shrink: 0; width: 300px; display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.groupTitle { flex: 1; min-width: 0; }
+/* A 180px cell at the row's right end, text from its left edge; the level values below use the same cell. */
+.groupAside { flex-shrink: 0; width: 180px; text-align: left; }
+.numberField { display: block; width: 120px; }
+.levelText { width: 180px; display: flex; justify-content: flex-start; }
+
+/* A plain sub-heading row inside a card (e.g. "Need the patient's consent") */
+.groupHead {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4); border-bottom: 0.5px solid var(--neutral-150);
+  background: var(--neutral-0); border-radius: 8px 8px 0 0;
+  font-size: var(--font-sm); font-weight: 500; color: var(--neutral-300);
+}
+
+
+/* Repeating rows with several fields (states, payer rules) */
+.subRows { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) 0; }
+.stateGrid > * { justify-self: start; }
+/* Fields fill their column; the remove button hugs its content. */
+.stateGrid > div { justify-self: stretch; }
+.stateGrid { display: grid; grid-template-columns: minmax(0, 1fr) 120px 120px 24px; align-items: center; gap: var(--space-3); }
+.subRowsHead { font-size: var(--font-sm); color: var(--neutral-300); }
+
+/* Feature grid */
+.featureGroupHead, .featureRow {
+  display: grid; grid-template-columns: minmax(0, 1fr) 112px 112px; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+/* Column header row at the top of each area box */
+.featureGroupHead { border-bottom: 0.5px solid var(--neutral-150); font-size: var(--font-sm); font-weight: 500; color: var(--neutral-300); }
+.featureRow { min-height: 44px; border-bottom: 0.5px solid var(--neutral-150); font-size: var(--font-base); color: var(--neutral-400); }
+.featureName { min-width: 0; display: inline-flex; align-items: center; gap: var(--space-1); }
+.cellCenter { justify-self: center; display: inline-flex; align-items: center; gap: var(--space-1); }
+.yes { display: inline-flex; color: var(--status-success); }
+.no { display: inline-flex; color: var(--status-error); }
+.locked {
+  /* The lock sits where the View only ticks are (about the centre of the 112px column). */
+  grid-column: span 2; justify-self: start; padding-left: var(--space-12); display: inline-flex; align-items: center; gap: var(--space-1);
+  font-size: var(--font-md); color: var(--neutral-200);
+}
+

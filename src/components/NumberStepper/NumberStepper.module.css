@@ -18,6 +18,8 @@
   background: none;
   outline: none;
   text-align: center;
+  /* An <input> doesn't inherit the page font by default; this keeps it Inter. */
+  font: inherit;
   font-size: var(--font-base);
   line-height: 1.2;
   color: var(--neutral-300);

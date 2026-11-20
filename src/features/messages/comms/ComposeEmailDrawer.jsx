@@ -172,7 +172,7 @@ export function ComposeEmailDrawer({ initial = {}, onClose, onSent }) {
   const withOthers = !forPatient && hasRoles && sendToPicked.some(v => v !== 'patient');
   const protectable = withOthers && (useTemplate || hasLink(body));
   const blockers = protectable ? verifyBlockers(verifyId, people.filter(o => sendToPicked.includes(o.value)).map(o => ({ ...o, name: o.label }))) : [];
-  const verifyCard = <VerifyIdCard value={verifyId} onChange={(v) => { setDirty(true); setVerifyId(v); }} blockers={blockers} hint="Applies to any links in the email" />;
+  const verifyCard = <VerifyIdCard value={verifyId} onChange={(v) => { setDirty(true); setVerifyId(v); }} blockers={blockers} />;
   const globalTo = people.filter(o => sendToPicked.includes(o.value)).map(o => o.email).filter(Boolean);
   const to = forPatient
     ? [contact?.email, ...extraContacts.map(c => c.email)].filter(Boolean)

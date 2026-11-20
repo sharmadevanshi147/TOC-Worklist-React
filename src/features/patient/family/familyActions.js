@@ -8,6 +8,7 @@ export async function adoptProfileMember(patientId, m) {
     additionalPhones: [], isCaregiver: !!m.isCaregiver, isEmergencyContact: !!m.isEmergencyContact,
     decisionMaker: null, authorityType: null, documentIds: [],
     accessLevel: 'none', accessBasis: 'consent', accessStatus: 'not_invited', consentStatus: 'not_needed',
+    _adopted: true,
   });
   if (!saved) toast.error(`${m.name} could not be added to the list. Try again.`);
   return saved;

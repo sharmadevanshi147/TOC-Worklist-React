@@ -207,7 +207,7 @@ export function ComposeEmailScreen({ patient: given, conversation: givenConv, su
           <span className={styles.personName}>{patient.email || ''}</span>
         </Field>
       )}
-      {withOthers && <VerifyIdCard value={verifyId} onChange={setVerifyId} blockers={blockers} hint="Applies to any links in the email" />}
+      {withOthers && <VerifyIdCard value={verifyId} onChange={setVerifyId} blockers={blockers} />}
       {showCc ? (
         <>
           <RecipientInput label="Cc" value={cc} onChange={setCc} />

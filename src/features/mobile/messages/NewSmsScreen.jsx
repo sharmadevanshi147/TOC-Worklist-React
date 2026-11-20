@@ -170,7 +170,7 @@ export function NewSmsScreen({ initialPatient }) {
           />
         </Field>
       )}
-      {withOthers && <VerifyIdCard value={verifyId} onChange={setVerifyId} blockers={blockers} hint="Applies to any links in the message" />}
+      {withOthers && <VerifyIdCard value={verifyId} onChange={setVerifyId} blockers={blockers} />}
       {sharedNumber && (
         <Select
           label="Log this SMS For"

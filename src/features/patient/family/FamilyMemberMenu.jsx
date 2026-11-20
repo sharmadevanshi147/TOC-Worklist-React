@@ -50,6 +50,12 @@ export function FamilyMemberMenu({ patient, member: m, anchorRect, onClose, onEd
       const target = await saved();
       if (!target) return;
       const ok = await updateFamilyMember(patientId, target.id, { isCaregiver: !m.isCaregiver });
+      if (ok) {
+        useAppStore.getState().logFamilyAccessEvent({
+          patientId, memberId: target.id, memberName: target.name, action: 'roles_changed',
+          note: m.isCaregiver ? 'Unmarked as caregiver' : 'Marked as caregiver',
+        });
+      }
       if (ok) toast.success(m.isCaregiver ? 'Caregiver Unmarked Successfully' : 'Caregiver Marked Successfully');
       else toast.error('This change could not be saved. Try again.');
     } else if (key === 'remove') {

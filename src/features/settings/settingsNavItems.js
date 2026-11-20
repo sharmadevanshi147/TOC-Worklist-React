@@ -23,6 +23,7 @@ export const SETTINGS_MENU_ITEMS = [
   { icon: 'solar:user-id-linear', label: 'Memberships', key: 'memberships' },
   { icon: 'solar:bill-list-linear', label: 'Billing', key: 'billing' },
   { icon: 'solar:shield-user-linear', label: 'Account', key: 'account' },
+  { icon: 'solar:smartphone-linear', label: 'Patient App', key: 'patient-app' },
 ];
 
 export const SECTION_LABELS = Object.fromEntries(

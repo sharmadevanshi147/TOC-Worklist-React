@@ -78,7 +78,9 @@ CREATE POLICY "Allow all on family_access_consents" ON public.family_access_cons
 -- App Access History (one patient's history across every family member):
 -- one row per access action, newest read first. `action`:
 -- requested | changed | consent_recorded | invited | active | declined |
--- withdrawn | removed | ended | paused
+-- withdrawn | removed | ended, and for the family list itself
+-- member_added | member_removed | roles_changed | details_updated
+-- (method holds the relationship for those).
 CREATE TABLE IF NOT EXISTS public.family_access_events (
   id                text PRIMARY KEY,
   patient_id        text NOT NULL,
@@ -90,8 +92,13 @@ CREATE TABLE IF NOT EXISTS public.family_access_events (
   method            text,
   note              text,
   actor             text,
+  -- A staff-recorded Written consent's signed form, kept in the patient's Documents.
+  document_id       text,
+  document_name     text,
   created_at        timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE public.family_access_events ADD COLUMN IF NOT EXISTS document_id text;
+ALTER TABLE public.family_access_events ADD COLUMN IF NOT EXISTS document_name text;
 CREATE INDEX IF NOT EXISTS family_access_events_patient_idx ON public.family_access_events (patient_id, created_at DESC);
 
 ALTER TABLE public.family_access_events ENABLE ROW LEVEL SECURITY;

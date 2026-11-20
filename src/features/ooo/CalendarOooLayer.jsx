@@ -39,7 +39,7 @@ function HolidayStrip({ holiday }) {
     <span className={styles.holidayStrip}>
       <HolidayBadgeIcon size={12} color="var(--neutral-0)" starColor="var(--accent-green)" />
       <span className={styles.stripText}>{holiday.name}</span>
-      {depts.length > 0 && <span className={`${styles.stripMeta} ${depts.length > 1 ? styles.stripHover : ''}`}>at {depts.length === 1 ? depts[0] : `${depts.length} locations`}</span>}
+      {depts.length > 0 && <span className={`${styles.stripMeta} ${depts.length > 1 ? styles.stripHover : ''}`}>({depts.length === 1 ? depts[0] : `${depts.length} locations`})</span>}
     </span>
   );
   return <HolidayHoverCard holidays={[holiday]} className={styles.holidayStripWrap}>{strip}</HolidayHoverCard>;

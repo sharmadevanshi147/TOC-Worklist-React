@@ -41,6 +41,9 @@
   gap: var(--space-2);
 }
 
+/* The layout toggle matches the 28px icon buttons beside it (its 1px
+   frame would otherwise make it 30px). */
+.layoutToggle.layoutToggle button { height: 26px; }
 .toolGroup {
   display: flex;
   align-items: center;

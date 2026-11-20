@@ -138,7 +138,7 @@ export function DayResourceView({ date, users, appointments, oooRecords, holiday
                   <span className={styles.stripText}>{holiday.name}</span>
                   {(holiday.locations || []).length > 0 && (
                     <span className={`${styles.stripMeta} ${holiday.locations.length > 1 ? styles.stripHover : ''}`}>
-                      at {holiday.locations.length === 1 ? holiday.locations[0] : `${holiday.locations.length} locations`}
+                      ({holiday.locations.length === 1 ? holiday.locations[0] : `${holiday.locations.length} locations`})
                     </span>
                   )}
                 </span>

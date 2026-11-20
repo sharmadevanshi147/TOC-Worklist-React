@@ -9,18 +9,12 @@ import { Icon } from '../../../components/Icon/Icon';
 import { CollapsibleContent } from '../../../components/Collapsible/Collapsible';
 import { Tooltip } from '../../../components/Tooltip/Tooltip';
 import {
-  VERIFICATION_METHODS, INVALID_ATTEMPT_POLICIES, verifySummary, usesTimeLock, usesMaxTotal,
+  VERIFICATION_METHODS, INVALID_ATTEMPT_POLICIES, verifySummaryText as summaryText, usesTimeLock, usesMaxTotal,
 } from './sendTo';
 import styles from './VerifyIdCard.module.css';
 
 const num = (v, min = 1) => Math.max(min, Number(v) || min);
 const firstName = (name) => String(name || '').trim().split(/\s+/)[0];
-
-/** "Verify first name, phone number (both required) to access link." */
-function summaryText(v) {
-  const { methods, rule } = verifySummary(v);
-  return `Verify ${methods}${rule ? ` (${rule})` : ''} to access link.`;
-}
 
 /** The Verify identity settings, as label | field rows. */
 function VerifySettings({ value: v, onChange }) {
@@ -122,7 +116,7 @@ function EditLink({ onClick }) {
 
 /**
  * "Protect links" (Figma 3000:1959). Three states:
- *   off      – a card with just the checkbox
+ *   off      – the same summary card, unticked and without Edit
  *   on       – a card summarising what the recipient has to verify, with Edit
  *              (ticking goes straight here with the default settings)
  *   editing  – the settings as a draft, with Discard (drops it) and Save (applies it)
@@ -132,9 +126,8 @@ function EditLink({ onClick }) {
  * @param {object}   props.value     – DEFAULT_ID_VERIFICATION's shape
  * @param {function} props.onChange  – (next) => void
  * @param {{name: string, available: string[]}[]} [props.blockers] – verifyBlockers(); blocks Send
- * @param {string} [props.hint] – under the label while it's off
  */
-export function VerifyIdCard({ value: v, onChange, blockers = [], hint }) {
+export function VerifyIdCard({ value: v, onChange, blockers = [] }) {
   const [editing, setEditing] = useState(null); // the draft while Edit is open
   const label = 'Protect links';
 
@@ -147,14 +140,14 @@ export function VerifyIdCard({ value: v, onChange, blockers = [], hint }) {
   // Off is a card too, so the choice stands out before it's made.
   if (!v.on) {
     return (
-      <label className={`${styles.card} ${styles.offCard}`}>
-        {check}
-        {hint ? (
+      <label className={`${styles.card} ${styles.summaryCard}`}>
+        <span className={styles.summaryMain}>
+          {check}
           <span className={styles.summaryLines}>
-            <span className={styles.offLabel}>{label}</span>
-            <span className={styles.desc}>{hint}</span>
+            <span className={styles.title}>{label}</span>
+            <span className={styles.desc}>{summaryText(v)}</span>
           </span>
-        ) : <span className={styles.offLabel}>{label}</span>}
+        </span>
       </label>
     );
   }

@@ -360,7 +360,7 @@ export function NewSmsDrawer({ onClose, onSent, initialPatient, initialSendTo })
             {/* Protect links sits under Send To, the choice that calls for it,
                 so it's set before writing and doesn't jump in mid-typing. */}
             <VerifyIdReveal show={withOthers}>
-              <VerifyIdCard value={verifyId} onChange={setVerifyId} blockers={blockers} hint="Applies to any links in the message" />
+              <VerifyIdCard value={verifyId} onChange={setVerifyId} blockers={blockers} />
             </VerifyIdReveal>
           </SendToPicker>
         )}

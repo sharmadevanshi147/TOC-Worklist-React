@@ -19,8 +19,6 @@ export const ACCESS_STATUS = {
   active: { label: 'Active', tone: 'success' },
   declined: { label: 'Declined', tone: 'danger' },
   removed: { label: 'Removed', tone: 'neutral' },
-  // Derived, never stored: legal authority without its role or document (AC10).
-  paused: { label: 'Paused', tone: 'warning' },
 };
 
 /**
@@ -75,9 +73,12 @@ export const needsConsent = (level, basis, patient) => level !== 'none' && basis
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-/** The status a card shows, including the derived Paused. */
+/**
+ * The status a card shows. Legal authority without its decision maker role
+ * or document counts as ended, the same as a past end date.
+ */
 export function accessStatusOf(m) {
-  if (m.accessBasis === 'legal_authority' && m.accessLevel !== 'none' && !hasLegalAuthority(m)) return 'paused';
+  if (m.accessBasis === 'legal_authority' && m.accessLevel !== 'none' && !hasLegalAuthority(m)) return 'removed';
   if (m.accessEndsOn && m.accessEndsOn < todayIso() && m.accessLevel !== 'none') return 'removed';
   return m.accessStatus || 'not_invited';
 }
@@ -87,7 +88,7 @@ export function isAccessActive(m) {
   const s = accessStatusOf(m);
   // Only a real level counts (a person added this session has none yet), and
   // only once the patient has agreed: a request awaiting consent isn't access.
-  return (m.accessLevel === 'view' || m.accessLevel === 'act') && !['pending_consent', 'declined', 'removed', 'paused'].includes(s);
+  return (m.accessLevel === 'view' || m.accessLevel === 'act') && !['pending_consent', 'declined', 'removed'].includes(s);
 }
 
 /**
@@ -198,6 +199,8 @@ export const accessToRow = (p) => ({
   ...('accessUpdatedAt' in p ? { access_updated_at: p.accessUpdatedAt } : {}),
 });
 
+const rolesOfMemberLabels = (m) => [m.isCaregiver && 'Caregiver', m.isEmergencyContact && 'Emergency Contact', m.decisionMaker].filter(Boolean).join(', ');
+
 /**
  * Sample App Access History for a patient's family, used only until the
  * family_access_events table exists. Each person's story matches their saved
@@ -213,12 +216,20 @@ export function sampleAccessEvents(patientId, members = []) {
     at: new Date(now - agoDays * day).toISOString(), actor: 'Dr. Michael Chen', note: '', sample: true, ...extra,
   });
   members.forEach((m) => {
+    add(m, 'member_added', 30, { method: m.relationship, note: rolesOfMemberLabels(m) });
     const level = m.accessLevel === 'view' || m.accessLevel === 'act' ? m.accessLevel : null;
     const status = m.accessStatus || 'not_invited';
     if (hasLegalAuthority(m)) {
       // A legal authority acts on behalf from the day the document is attached.
       add(m, 'requested', 12, { toLevel: 'act', note: `Legal Authority document attached: ${m.authorityType || 'legal authority'}.` });
       add(m, 'active', 11, { toLevel: 'act', actor: m.name });
+    } else if (level && m.accessBasis === 'minor_parent') {
+      // A parent of a minor: no consent step.
+      add(m, 'requested', 8, { toLevel: level, note: 'Parent of a minor: no patient consent needed.' });
+      if (m.invitedAt || status === 'invited' || status === 'active') add(m, 'invited', 6, { toLevel: level, method: m.invitedVia || 'sms' });
+      if (status === 'active') add(m, 'active', 5, { toLevel: level, actor: m.name });
+    } else if (level && status === 'not_invited') {
+      add(m, 'requested', 3, { toLevel: level, method: 'staff' });
     } else if (level && status === 'active') {
       add(m, 'requested', 9, { toLevel: level, method: 'staff', note: 'Patient asked for help with appointments.' });
       add(m, 'consent_recorded', 9, { toLevel: level, method: 'verbal', note: 'Patient agreed by phone.' });

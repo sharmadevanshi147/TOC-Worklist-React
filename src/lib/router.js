@@ -326,6 +326,7 @@ const SETTINGS_SECTION_TO_NAV = {
   'care-program-config': 'care-program-config',
   'crm-widgets': 'crm-widgets',
   'embedded-components': 'embedded-components',
+  'patient-app': 'patient-app',
   'content': 'content',
   'wearables': 'wearables',
   'journeys': 'journeys',

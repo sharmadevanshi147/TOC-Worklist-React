@@ -123,7 +123,7 @@ export function MonthCountView({ date, appointments, oooRecords, holidays = [], 
                     <span className={styles.holidayName}>
                       {h.name}
                       {(h.locations || []).length > 0 && (
-                        <span className={`${styles.holidayWhere} ${h.locations.length > 1 ? styles.holidayCount : ''}`}> at {h.locations.length === 1 ? h.locations[0] : `${h.locations.length} locations`}</span>
+                        <span className={`${styles.holidayWhere} ${h.locations.length > 1 ? styles.holidayCount : ''}`}> ({h.locations.length === 1 ? h.locations[0] : `${h.locations.length} locations`})</span>
                       )}
                     </span>
                   </span>

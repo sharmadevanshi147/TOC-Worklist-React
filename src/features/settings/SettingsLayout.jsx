@@ -27,6 +27,7 @@ import { createPortal } from 'react-dom';
 import { Icon } from '../../components/Icon/Icon';
 import { useFloatingSubNavSlot } from '../../components/FloatingSidebar/floatingSubNavSlot';
 import styles from './SettingsLayout.module.css';
+import { PatientAppSettings } from './patient-app/PatientAppSettings';
 
 /**
  * SettingsSubNav lives inside the floating NavBar card when the user has
@@ -47,7 +48,7 @@ function SettingsSubNavSlot({ activeItem, onItemClick }) {
 // queries; a static placeholder costs nothing.
 const IMPLEMENTED = new Set([
   'agents', 'member/leads', 'messages', 'embedded-components',
-  'content', 'care-plan-library', 'care-program-config', 'billing', 'account', 'calendar', 'calls', 'automations',
+  'content', 'care-plan-library', 'care-program-config', 'billing', 'account', 'calendar', 'calls', 'automations', 'patient-app',
 ]);
 
 function ComingSoonPanel({ label }) {
@@ -200,6 +201,8 @@ export function SettingsLayout() {
         <AccountPanel />
       ) : settingsNavItem === 'billing' ? (
         <BillingPanel />
+      ) : settingsNavItem === 'patient-app' ? (
+        <PatientAppSettings />
       ) : settingsNavItem === 'calendar' ? (
         <CalendarSettings />
       ) : settingsNavItem === 'calls' ? (

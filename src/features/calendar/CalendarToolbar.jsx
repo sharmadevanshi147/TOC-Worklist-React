@@ -184,6 +184,7 @@ export function CalendarToolbar({
             value={layout}
             onValueChange={onLayoutChange}
             size="sm"
+            className={styles.layoutToggle}
           />
           {divider}
           <div className={styles.toolGroup}>

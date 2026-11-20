@@ -46,6 +46,7 @@ import { SdohIcon } from './SdohIcon';
 import { RatingIcon } from './RatingIcon';
 import { DragHandleIcon } from './DragHandleIcon';
 import { DownChevronIcon } from './DownChevronIcon';
+import { PhoneVerifiedIcon } from './PhoneVerifiedIcon';
 
 const DOWN_CHEVRON_NAMES = new Set([
   'solar:alt-arrow-down-linear',
@@ -86,6 +87,7 @@ export function Icon({ name, size = 18, color, style, className }) {
   if (name === 'custom:export') return <ExportIcon size={size} color={color} />;
   if (name === 'custom:add-dos') return <AddDosIcon size={size} color={color} />;
   if (name === 'custom:collapse-sidebar') return <CollapseSidebarIcon size={size} color={color} />;
+  if (name === 'custom:phone-verified') return <PhoneVerifiedIcon size={size} color={color || 'currentColor'} />;
   if (name === 'custom:bulk-select') return <BulkSelectIcon size={size} color={color} />;
   if (name === 'custom:bulk-select-close') return <BulkSelectCloseIcon size={size} color={color} />;
   if (name === 'custom:upload') return <UploadIcon size={size} color={color} />;

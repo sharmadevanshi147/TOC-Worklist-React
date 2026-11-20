@@ -20,18 +20,6 @@
 }
 
 /* Off: the checkbox alone in the card, on white until it's ticked. */
-.offCard {
-  background: var(--neutral-0);
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
-  cursor: pointer;
-}
-.offLabel {
-  font-size: var(--font-base);
-  line-height: 1.2;
-  color: var(--neutral-400);
-}
 
 .head {
   display: flex;
@@ -50,6 +38,8 @@
   flex-direction: row;
   align-items: center;
 }
+/* Unticked, the whole card toggles it. */
+label.summaryCard { cursor: pointer; }
 .summaryMain {
   display: flex;
   align-items: flex-start;
